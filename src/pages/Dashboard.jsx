@@ -1,0 +1,83 @@
+import React from 'react';
+import { Lock } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+
+function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, showAccuracy = true }) {
+  const { setTab } = useApp();
+  return (
+    <div className="mb-8">
+      <h3 className="font-display font-700 text-lg mb-3">{title}</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs card glow-border rounded-xl overflow-hidden">
+          <thead className="card2">
+            <tr className="text-left muted">
+              <th className="p-3">Test</th><th>Attempt</th><th>Score</th><th>Accuracy</th><th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length ? rows.map((s, i) => (
+              <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                <td className="p-3">{s.testTitle}</td>
+                <td>#{s.attempt}</td>
+                <td className="gold-text font-semibold">{s.score}/{s.maxScore}</td>
+                <td>{s.accuracy}%</td>
+                <td>{new Date(s.date).toLocaleDateString()}</td>
+              </tr>
+            )) : (
+              <tr><td className="p-3 muted" colSpan={5}>{emptyLabel} <button onClick={() => setTab(emptyTab)} className="gold-text underline">{onGo}</button></td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const { DB, user, openModal } = useApp();
+
+  if (!user) {
+    return (
+      <div className="text-center py-16">
+        <Lock className="w-10 h-10 gold-text mx-auto mb-3" />
+        <p className="muted mb-4">Please login to view your dashboard.</p>
+        <button onClick={() => openModal('login')} className="btn-gold rounded-lg px-6 py-2.5 text-sm font-bold">Student Login</button>
+      </div>
+    );
+  }
+
+  const rec = DB.students.find((s) => s.id === user.id) || user;
+  const subs = [...DB.submissions].filter((s) => s.studentId === user.id).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const quizSubs = subs.filter((s) => s.testType === 'quiz');
+  const pyqSubs = subs.filter((s) => s.testType === 'pyq');
+  const mockSubs = subs.filter((s) => s.testType !== 'quiz' && s.testType !== 'pyq');
+  const statusColor = rec.paymentStatus === 'Approved' ? 'bg-emerald-500/20 text-emerald-400'
+    : rec.paymentStatus === 'Pending' ? 'bg-amber-500/20 gold-text' : 'bg-gray-500/20 muted';
+
+  return (
+    <div>
+      <div className="grid sm:grid-cols-4 gap-4 mb-8">
+        <div className="card glow-border rounded-2xl p-5 sm:col-span-1">
+          <div className="w-14 h-14 rounded-full gold-grad flex items-center justify-center font-display font-800 text-ink text-xl mb-3">{user.name[0]}</div>
+          <p className="font-display font-700">{user.name}</p>
+          <p className="text-xs muted">{rec.phone || rec.email || ''}</p>
+          <span className={`badge mt-3 inline-block ${statusColor}`}>{rec.paymentStatus}</span>
+          <p className="text-xs muted mt-2">Batch: <span className="text-current font-semibold">{rec.batch || '—'}</span></p>
+        </div>
+        <div className="card glow-border rounded-2xl p-5 text-center flex flex-col justify-center">
+          <p className="text-[10px] muted uppercase">Mock Attempts</p><p className="font-display font-800 text-2xl gold-text">{mockSubs.length}</p>
+        </div>
+        <div className="card glow-border rounded-2xl p-5 text-center flex flex-col justify-center">
+          <p className="text-[10px] muted uppercase">PYQ Attempts</p><p className="font-display font-800 text-2xl gold-text">{pyqSubs.length}</p>
+        </div>
+        <div className="card glow-border rounded-2xl p-5 text-center flex flex-col justify-center">
+          <p className="text-[10px] muted uppercase">Quiz Attempts</p><p className="font-display font-800 text-2xl gold-text">{quizSubs.length}</p>
+        </div>
+      </div>
+
+      <ScoreTable title="Mock Test Score History" rows={mockSubs} emptyLabel="No mock attempts yet." emptyTab="mocks" onGo="Take one now" />
+      <ScoreTable title="PYQ Attempts" rows={pyqSubs} emptyLabel="No PYQ attempts yet." emptyTab="pyq" onGo="Browse PYQ Hub" />
+      <ScoreTable title="Quiz Stats" rows={quizSubs} emptyLabel="No quiz attempts yet." emptyTab="quiz" onGo="Try one now" />
+    </div>
+  );
+}
