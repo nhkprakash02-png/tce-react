@@ -23,7 +23,7 @@ export default function Navbar() {
               <img src="/logo.png" alt="TCE logo" onError={() => setLogoError(true)} className="w-9 h-9 rounded-lg object-cover shrink-0" />
             )}
             <div className="min-w-0 text-left">
-              <div className="font-display font-800 leading-tight text-sm sm:text-base truncate">TCE <span className="hidden sm:inline">The Competitive Edge</span></div>
+              <div className="font-display font-800 leading-tight text-xs sm:text-base truncate">TCE <span className="gold-text">The Competitive Edge</span></div>
               <div className="text-[9px] sm:text-[10px] muted hidden md:block whitespace-nowrap">Tcenahata.in — Target Your Dream Govt Job</div>
             </div>
           </button>
