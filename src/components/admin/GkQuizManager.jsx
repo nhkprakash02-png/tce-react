@@ -42,6 +42,16 @@ export default function GkQuizManager() {
     saveDB((prev) => ({ ...prev, quizPool: prev.quizPool.filter((q) => q.id !== qid) }));
   };
 
+  // Temporary bulk-fix tool: lets the admin wipe the entire quiz pool in one tap when a bad
+  // bulk upload needs to be discarded and re-done from scratch, without needing direct
+  // Firestore/database access.
+  const deleteAllGkQuizQuestions = () => {
+    if (!gkQuestions.length) return;
+    if (!confirm(`Delete ALL ${gkQuestions.length} GK quiz questions? This cannot be undone.`)) return;
+    if (!confirm('Are you absolutely sure? This will permanently wipe the entire quiz pool right now.')) return;
+    saveDB((prev) => ({ ...prev, quizPool: prev.quizPool.filter((q) => q.subject !== 'gk') }));
+  };
+
   return (
     <div>
       <div className="card2 rounded-xl p-4 mb-4">
@@ -84,7 +94,14 @@ export default function GkQuizManager() {
         <button onClick={bulkUploadGkQuiz} className="btn-gold rounded-lg px-4 py-2 text-xs font-bold mt-2">Upload Bulk to GK Quiz Pool</button>
       </div>
 
-      <p className="text-xs font-bold muted uppercase mb-2">GK Quiz Pool ({gkQuestions.length} questions)</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-bold muted uppercase">GK Quiz Pool ({gkQuestions.length} questions)</p>
+        {gkQuestions.length > 0 && (
+          <button onClick={deleteAllGkQuizQuestions} className="rounded-lg px-3 py-1.5 text-[11px] font-bold bg-red-600 text-white flex items-center gap-1">
+            <Trash2 className="w-3.5 h-3.5" />Delete All Quiz Questions
+          </button>
+        )}
+      </div>
       <div className="space-y-2">
         {gkQuestions.map((q, i) => (
           <div key={q.id} className="card rounded-lg p-3 flex justify-between items-start gap-3">
