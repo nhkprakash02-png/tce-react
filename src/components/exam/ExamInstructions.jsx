@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { X, RotateCcw, Play } from 'lucide-react';
+import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
 export default function ExamInstructions({ test, user, resumeData, onBegin, onResume, onCancel }) {
   const [lang, setLang] = useState('en');
+  useLockBodyScroll(true);
   const [agreed, setAgreed] = useState(false);
   const hasResume = resumeData && resumeData.testId === test.id && resumeData.remaining > 0;
 
