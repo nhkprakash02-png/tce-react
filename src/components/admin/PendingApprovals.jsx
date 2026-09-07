@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { timeAgo } from '../../lib/utils';
+import { timeAgo, isExemptEmail } from '../../lib/utils';
 
 export default function PendingApprovals() {
   const { DB, saveDB } = useApp();
@@ -15,7 +15,7 @@ export default function PendingApprovals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pending = DB.students.filter((s) => s.pendingReview).sort((a, b) => new Date(b.registeredAt) - new Date(a.registeredAt));
+  const pending = DB.students.filter((s) => s.pendingReview && !isExemptEmail(s.email)).sort((a, b) => new Date(b.registeredAt) - new Date(a.registeredAt));
 
   const approveSignup = (id) => saveDB((prev) => ({ ...prev, students: prev.students.map((s) => (s.id === id ? { ...s, pendingReview: false } : s)) }));
   const deleteStudent = (id) => {
