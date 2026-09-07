@@ -1,7 +1,7 @@
 // Pure logic for the shared CBT exam engine (Mock Tests / PYQ / Quiz). No DOM access, no
 // globals — everything here takes its state as arguments, so it's usable from a React hook
 // or a test file equally. Ported from index.html lines ~1484-1493, 1848-1972, 2157-2193.
-import { uid } from './utils';
+import { uid, isExemptEmail } from './utils';
 
 export function shuffle(arr) {
   const a = arr.slice();
@@ -92,15 +92,18 @@ export function buildSubmission(examState, DB, user) {
   const timeTakenSec = st.durationSec - st.remaining;
   return {
     id: uid('sub'), testId: st.testId, testType: st.source || 'mock', subject: st.subject, testTitle: st.title,
-    studentId: user.id, studentName: user.name, studentPhone: user.phone || '',
+    studentId: user.id, studentName: user.name, studentPhone: user.phone || '', studentEmail: user.email || '',
     attempt: attemptNo, score, maxScore, correct, wrong, unanswered, accuracy, timeTakenSec, durationSec: st.durationSec,
     date: new Date().toISOString(),
     detail: st.questions.map((q, i) => ({ q, given: st.answers[i], timeSpent: st.timeSpent[i] || 0 })),
   };
 }
 
+// Excludes the 4 exempt mentor/admin accounts (see EXEMPT_ADMIN_EMAILS in utils.js) from the
+// public leaderboard shown to real students — those accounts are for content review, not
+// competing students, so they shouldn't appear ranked alongside them.
 export function buildLeaderboard(submissions, testId) {
-  return submissions.filter((s) => s.testId === testId)
+  return submissions.filter((s) => s.testId === testId && !isExemptEmail(s.studentEmail))
     .reduce((acc, s) => {
       const ex = acc.find((a) => a.studentId === s.studentId);
       if (!ex || s.score > ex.score) { acc = acc.filter((a) => a.studentId !== s.studentId); acc.push(s); }
@@ -109,8 +112,10 @@ export function buildLeaderboard(submissions, testId) {
     .sort((a, b) => b.score - a.score);
 }
 
+// Also excludes exempt accounts, so their test-content-review attempts never skew the
+// "X% of students answered this correctly" stat shown to real students.
 export function computeCommunityAccuracy(submissions, testId, questionId) {
-  const subs = submissions.filter((s) => s.testId === testId);
+  const subs = submissions.filter((s) => s.testId === testId && !isExemptEmail(s.studentEmail));
   let attempted = 0, correct = 0;
   subs.forEach((s) => {
     const d = (s.detail || []).find((x) => x.q && x.q.id === questionId);
