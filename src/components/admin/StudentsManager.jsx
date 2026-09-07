@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { UserPlus, FileSpreadsheet, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp } from '../../context/AppContext';
-import { uid } from '../../lib/utils';
+import { uid, isExemptEmail } from '../../lib/utils';
 
 const EMPTY = { name: '', phone: '', email: '', address: '', status: 'Approved', batch: '' };
 
 export default function StudentsManager() {
   const { DB, saveDB } = useApp();
   const [form, setForm] = useState(() => ({ ...EMPTY, batch: DB.batches[0]?.name || '' }));
-  const listed = DB.students.filter((s) => !s.pendingReview);
+  // Exempt mentor/admin accounts (see EXEMPT_ADMIN_EMAILS) are intentionally left out of this
+  // list — they're not real students and shouldn't show up for manual review/approval here.
+  const listed = DB.students.filter((s) => !s.pendingReview && !isExemptEmail(s.email));
 
   const addStudentManually = () => {
     const { name, phone, email, address, status, batch } = form;
@@ -29,7 +31,7 @@ export default function StudentsManager() {
     saveDB((prev) => ({ ...prev, students: prev.students.filter((s) => s.id !== id) }));
   };
   const exportStudentsExcel = () => {
-    const rows = DB.students.map((s, i) => ({ SerialNo: i + 1, Name: s.name, Phone: s.phone, Email: s.email, Address: s.address, JoinDate: s.joinDate, PaymentStatus: s.paymentStatus, Batch: s.batch }));
+    const rows = DB.students.filter((s) => !isExemptEmail(s.email)).map((s, i) => ({ SerialNo: i + 1, Name: s.name, Phone: s.phone, Email: s.email, Address: s.address, JoinDate: s.joinDate, PaymentStatus: s.paymentStatus, Batch: s.batch }));
     const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Students'); XLSX.writeFile(wb, 'TCE_Students.xlsx');
   };
