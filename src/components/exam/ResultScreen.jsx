@@ -2,11 +2,13 @@ import React from 'react';
 import { Trophy, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, ImageDown, MessageCircle, Repeat } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { sectionDisplayName, buildLeaderboard, downloadScorecard, shareScorecardWhatsApp } from '../../lib/examEngine';
+import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
 function fmtTime(secs) { const m = Math.floor((secs || 0) / 60), s = (secs || 0) % 60; return `${m}:${String(s).padStart(2, '0')}`; }
 
 export default function ResultScreen({ submission: sub, autoTimeout, autoViolation, onReview, onReattempt, onClose }) {
   const { DB, setTab } = useApp();
+  useLockBodyScroll(true);
   const leaderboard = buildLeaderboard(DB.submissions, sub.testId);
   const rank = leaderboard.findIndex((s) => s.id === sub.id) + 1;
   const attempted = sub.correct + sub.wrong;
