@@ -5,6 +5,7 @@ import { getRedirectResult } from 'firebase/auth';
 import { loadDB, saveDB as persistDB, attachDbRealtimeListeners, loadBanners } from '../lib/db';
 import { seedDB, normalizeDB } from '../lib/seedData';
 import { fbAuth } from '../firebase';
+import { isExemptEmail } from '../lib/utils';
 
 const CUR_KEY = 'currentUser';
 const ADM_KEY = 'tce_admin_session_v1';
@@ -22,6 +23,7 @@ export function AppProvider({ children }) {
   const [admin, setAdminState] = useState(() => localStorage.getItem(ADM_KEY) === '1');
   const [theme, setThemeState] = useState(() => localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark');
   const [activeTab, setActiveTabState] = useState('home');
+  const [tabStack, setTabStack] = useState([]); // history of previously-visited tabs, for goBack()
   const [examInProgress, setExamInProgress] = useState(false); // mirrors original's `examState` guard
   // Replaces original's openModal(html)/closeModal() + #modalRoot innerHTML swap (lines ~951-980).
   // `modal` is { type: 'login' | 'enroll' | 'adminLogin' | ..., props: {...} } | null.
@@ -94,8 +96,26 @@ export function AppProvider({ children }) {
     else localStorage.removeItem(ADM_KEY);
   }, []);
 
+  // setTab records where you came FROM onto a small history stack, so goBack() can retrace
+  // your steps within the app (Home, Mock Tests, Dashboard, etc.) — this is what powers the
+  // on-page Back button, since the app is a single-page tab-switcher, not real browser pages.
   const setTab = useCallback((id) => {
-    setActiveTabState(id);
+    setActiveTabState((prev) => {
+      if (prev !== id) {
+        setTabStack((stack) => [...stack, prev].slice(-20)); // cap history length
+      }
+      return id;
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const goBack = useCallback(() => {
+    setTabStack((stack) => {
+      if (!stack.length) { setActiveTabState('home'); return stack; }
+      const next = stack.slice(0, -1);
+      setActiveTabState(stack[stack.length - 1]);
+      return next;
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -111,20 +131,28 @@ export function AppProvider({ children }) {
 
   const isEnrolled = useCallback(() => {
     if (!user) return false;
+    if (isExemptEmail(user.email)) return true;
     const rec = DB.students.find((s) => s.id === user.id);
     return !!(rec && rec.paymentStatus === 'Approved');
   }, [user, DB.students]);
+
+  // True for the 4 exempt mentor/admin accounts — full content access bypass everywhere a mock
+  // test or material would otherwise check the site-admin flag. Kept separate from `admin`
+  // (which specifically means "logged into the Admin Panel") so the two privileges don't get
+  // conflated — an exempt student never gets Admin Panel access from this alone.
+  const isExemptUser = isExemptEmail(user?.email);
+  const hasFullAccess = admin || isExemptUser;
 
   const value = useMemo(() => ({
     DB, setDB, saveDB, dbLoading,
     banners, setBanners,
     user, setUser, admin, setAdmin,
     theme, toggleTheme,
-    activeTab, setTab,
+    activeTab, setTab, goBack, canGoBack: tabStack.length > 0,
     examInProgress, setExamInProgress,
-    isEnrolled,
+    isEnrolled, isExemptUser, hasFullAccess,
     modal, openModal, closeModal,
-  }), [DB, saveDB, dbLoading, banners, user, setUser, admin, setAdmin, theme, toggleTheme, activeTab, setTab, examInProgress, isEnrolled, modal, openModal, closeModal]);
+  }), [DB, saveDB, dbLoading, banners, user, setUser, admin, setAdmin, theme, toggleTheme, activeTab, setTab, goBack, tabStack, examInProgress, isEnrolled, isExemptUser, hasFullAccess, modal, openModal, closeModal]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
