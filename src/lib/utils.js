@@ -52,3 +52,18 @@ export const TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
   { id: 'notices', label: 'Notices & Contact', icon: 'bell' },
 ];
+
+// These 4 accounts get lifetime full access to every mock test/material (no paywalls, no
+// "unlock for enrolled" gating) and are hidden from the admin's student list, pending-approval
+// queue, results dashboard, and all leaderboards/community-accuracy stats — they're mentor/admin
+// accounts used for content review, not real students, so they shouldn't appear in student-facing
+// or student-management views. Matched case-insensitively against the account's login email.
+export const EXEMPT_ADMIN_EMAILS = [
+  'pranabking79@gmail.com',
+  'nhkprakash04@gmail.com',
+  '7tanujoy@gmail.com',
+  'tarafdermaharup@gmail.com',
+];
+export function isExemptEmail(email) {
+  return !!email && EXEMPT_ADMIN_EMAILS.includes(String(email).trim().toLowerCase());
+}
