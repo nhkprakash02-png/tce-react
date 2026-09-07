@@ -130,6 +130,7 @@ export function seedDB() {
       { id: uid('mn'), name: 'Maharup Tarafder', subject: 'General Science, Static GK & Current Affairs', phone: '918327416813', photo: 'maharup.png' },
       { id: uid('mn'), name: 'Pranab Sadhukhan', subject: 'Reasoning & English', phone: '917407879095', photo: 'pranab.png' },
     ],
+    urgentNotices: [],
   };
 }
 
@@ -141,6 +142,7 @@ export function normalizeDB(db) {
     (db.materials[cat] || []).forEach((m) => { if (m.isFreeDemo === undefined) m.isFreeDemo = false; });
   });
   (db.students || []).forEach((s) => { if (s.pendingReview === undefined) s.pendingReview = false; });
+  if (!db.urgentNotices) db.urgentNotices = []; // backfill for existing live databases
   if (db.mockTests && (!db.mockTests.science || !db.mockTests.science.length)) {
     db.mockTests.science = seedDB().mockTests.science;
   }
