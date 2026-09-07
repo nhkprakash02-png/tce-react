@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Languages, Maximize, Menu, X, AlertTriangle } from 'lucide-react';
+import { Languages, Maximize, Menu, X } from 'lucide-react';
 import { useExam } from '../../hooks/useExam';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
@@ -19,10 +19,11 @@ function fmtTimer(s) {
 }
 
 export default function ExamRunner({ initialExam, user, onFinish }) {
-  const { exam: st, violationWarning, dismissViolationWarning, goToQuestion, examNav, handleOptionClick, clearResponse, markForReview, saveAndNext, toggleLang, finish } = useExam(initialExam, user.id, onFinish);
+  const { exam: st, goToQuestion, examNav, handleOptionClick, clearResponse, markForReview, saveAndNext, toggleLang, finish } = useExam(initialExam, user.id, onFinish);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [confirmLastQ, setConfirmLastQ] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   useLockBodyScroll(true);
 
   const q = st.questions[st.current];
@@ -45,7 +46,11 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--bg)' }}>
       <div className="flex items-center justify-between px-4 py-3 card2" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg gold-grad flex items-center justify-center font-display font-800 text-ink text-sm">T</div>
+          {logoError ? (
+            <div className="w-8 h-8 rounded-lg gold-grad flex items-center justify-center font-display font-800 text-ink text-sm">T</div>
+          ) : (
+            <img src="/logo.png" alt="TCE" onError={() => setLogoError(true)} className="w-8 h-8 rounded-lg object-cover" />
+          )}
           <div><p className="text-xs font-semibold">TCE — {st.title}</p><p className="text-[10px] muted">Candidate: {user.name}</p></div>
         </div>
         <div className="flex items-center gap-3">
@@ -60,7 +65,18 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        <div className="flex-1 overflow-y-auto p-5 sm:p-8 watermark-wrap wm-fallback relative">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-8 relative">
+          {!logoError && (
+            <img
+              src="/logo.png" alt="" onError={() => setLogoError(true)} aria-hidden="true"
+              className="pointer-events-none select-none absolute inset-0 m-auto w-2/5 max-w-[380px] opacity-[0.06] z-0"
+            />
+          )}
+          {logoError && (
+            <div aria-hidden="true" className="pointer-events-none select-none absolute inset-0 flex items-center justify-center z-0">
+              <span className="font-display font-800 text-9xl tracking-widest opacity-[0.045]">TCE</span>
+            </div>
+          )}
           <div className="relative z-10 max-w-2xl mx-auto">
             <div className="flex justify-between items-center mb-4">
               <span className="text-xs muted">Question <span className="gold-text font-bold">{st.current + 1}</span> of {st.questions.length}</span>
@@ -126,17 +142,6 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
           <button onClick={handleSaveAndNext} className="btn-gold rounded-lg px-4 py-2 text-xs font-bold">Save &amp; Next</button>
         </div>
       </div>
-
-      {violationWarning > 0 && (
-        <div className="fixed inset-0 z-[60] modal-backdrop flex items-center justify-center p-4">
-          <div className="card glow-border rounded-2xl p-6 max-w-sm text-center">
-            <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
-            <h3 className="font-display font-700 text-lg mb-2">Warning {violationWarning}/3</h3>
-            <p className="text-sm muted mb-4">Switching tabs, minimizing the window, or leaving full-screen during the exam is not allowed. Your test will be <b>auto-submitted</b> on the 3rd violation.</p>
-            <button onClick={() => { dismissViolationWarning(); try { document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} }} className="w-full btn-gold rounded-lg py-2.5 text-sm font-bold">I Understand</button>
-          </div>
-        </div>
-      )}
 
       {confirmLastQ && (
         <div className="fixed inset-0 z-[60] modal-backdrop flex items-center justify-center p-4">
