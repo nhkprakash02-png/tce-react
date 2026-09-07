@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Menu, X, Zap, CheckCircle, Clock, AlertCircle, Eye } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { sectionDisplayName, classifySpeed, computeCommunityAccuracy, fmtReviewTime } from '../../lib/examEngine';
+import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
 const SPEED_ICONS = { zap: Zap, 'check-circle': CheckCircle, clock: Clock, 'alert-circle': AlertCircle };
 
@@ -13,6 +14,7 @@ export default function ReviewScreen({ submission: sub, onBackToSummary, onClose
   const [reattemptMode, setReattemptMode] = useState(false);
   const [localAnswers, setLocalAnswers] = useState({});
   const [showSolution, setShowSolution] = useState(false);
+  useLockBodyScroll(true);
 
   const correctCount = sub.detail.filter((d) => d.given && d.given === d.q.correct).length;
   const incorrectCount = sub.detail.filter((d) => d.given && d.given !== d.q.correct).length;
