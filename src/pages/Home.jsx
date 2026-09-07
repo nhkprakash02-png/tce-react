@@ -2,6 +2,7 @@ import React from 'react';
 import { FileCheck2, Zap, Archive, BookOpen, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { priceLabel, batchFeaturesList } from '../lib/utils';
+import UrgentNotices from '../components/UrgentNotices';
 
 const QUICK_LINKS = [
   { icon: FileCheck2, label: 'Mock Tests', val: 'Paid / Enrolled', tab: 'mocks' },
@@ -32,6 +33,7 @@ export default function Home() {
 
   return (
     <div>
+      <UrgentNotices />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
         {QUICK_LINKS.map((c) => (
           <button key={c.tab} onClick={() => setTab(c.tab)} className="card glow-border rounded-2xl p-4 text-left">
