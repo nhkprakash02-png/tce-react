@@ -18,7 +18,7 @@ function canAccessMaterial(material, isEnrolled, admin) {
 }
 
 export default function StudyMaterials() {
-  const { DB, saveDB, user, admin, isEnrolled, openModal } = useApp();
+  const { DB, saveDB, user, hasFullAccess, isEnrolled, openModal } = useApp();
   const [cat, setCat] = useState('math');
   const [subCat, setSubCat] = useState('all');
   const [previewMat, setPreviewMat] = useState(null); // { mat, url }
@@ -41,7 +41,7 @@ export default function StudyMaterials() {
     const isFreeDemo = !!m.isFreeDemo;
     if (!isFreeDemo) {
       if (!user) { alert('Please login to view watermarked materials.'); openModal('login'); return; }
-      if (!canAccessMaterial(m, isEnrolled, admin)) { openModal('enroll', { context: 'materialsLocked' }); return; }
+      if (!canAccessMaterial(m, isEnrolled, hasFullAccess)) { openModal('enroll', { context: 'materialsLocked' }); return; }
     }
     incrementView(m.id);
     if (m.url && !m.url.startsWith('data:')) { window.open(m.url, '_blank'); return; }
@@ -57,7 +57,7 @@ export default function StudyMaterials() {
     const isFreeDemo = !!m.isFreeDemo;
     if (!isFreeDemo) {
       if (!user) { alert('Please login to download watermarked materials.'); openModal('login'); return; }
-      if (!canAccessMaterial(m, isEnrolled, admin)) { openModal('enroll', { context: 'materialsLocked' }); return; }
+      if (!canAccessMaterial(m, isEnrolled, hasFullAccess)) { openModal('enroll', { context: 'materialsLocked' }); return; }
     }
     if (m.url && !m.url.startsWith('data:')) {
       const a = document.createElement('a'); a.href = m.url; a.download = m.title.replace(/\s+/g, '_') + '_TCE'; a.target = '_blank'; a.rel = 'noopener';
@@ -99,7 +99,7 @@ export default function StudyMaterials() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {mats.length ? mats.map((m) => {
-          const locked = !canAccessMaterial(m, isEnrolled, admin);
+          const locked = !canAccessMaterial(m, isEnrolled, hasFullAccess);
           return (
             <div key={m.id} className="card glow-border rounded-2xl p-5">
               <FileText className="w-8 h-8 gold-text mb-3" />
