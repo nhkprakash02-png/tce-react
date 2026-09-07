@@ -1,18 +1,26 @@
 // Wraps the original's global `examState` + its mutator functions (handleOptionClick,
-// clearResponse, markForReview, saveAndNext, goToQuestion, timer, anti-cheat) into one React
-// hook. Ported from index.html lines ~1690-1794.
+// clearResponse, markForReview, saveAndNext, goToQuestion, timer) into one React hook.
+// Ported from index.html lines ~1690-1794.
+//
+// NOTE: the original's tab-switch/blur/fullscreen-exit anti-cheat system (3 warnings then
+// auto-submit) has been deliberately removed per request — it was firing on ordinary things
+// like an incoming phone call notification or briefly switching apps, and in some cases a
+// single tab-switch triggered both the `blur` and `visibilitychange` listeners at once,
+// silently double-counting toward the 3-strike limit and auto-submitting without the person
+// ever seeing an intermediate warning. The timer-based auto-submit (time runs out) and the
+// explicit "confirm before submitting the last question" prompt are both untouched below —
+// only the tab-switch/blur/fullscreen policing was removed.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveExamProgress } from '../lib/examEngine';
 
 export function useExam(initialState, userId, onFinish) {
   const [exam, setExam] = useState(initialState);
-  const [violationWarning, setViolationWarning] = useState(0); // 0 = none, else shows "Warning N/3"
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
 
   const persist = useCallback((next) => { saveExamProgress(userId, next); }, [userId]);
 
-  // --- Timer ---
+  // --- Timer (unchanged: still auto-submits the instant time runs out) ---
   useEffect(() => {
     const id = setInterval(() => {
       setExam((prev) => {
@@ -27,33 +35,6 @@ export function useExam(initialState, userId, onFinish) {
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // --- Anti-cheat: tab-switch / blur / fullscreen-exit (3 violations = auto-submit) ---
-  const triggerViolation = useCallback(() => {
-    setExam((prev) => {
-      if (!prev) return prev;
-      const violations = prev.violations + 1;
-      const next = { ...prev, violations };
-      if (violations >= 3) { onFinishRef.current(next, false, true); return next; }
-      setViolationWarning(violations);
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    const onBlur = () => triggerViolation();
-    const onVisibility = () => { if (document.hidden) triggerViolation(); };
-    const onFullscreenChange = () => { if (!document.fullscreenElement) triggerViolation(); };
-    window.addEventListener('blur', onBlur);
-    document.addEventListener('visibilitychange', onVisibility);
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    try { document.documentElement.requestFullscreen().catch(() => {}); } catch (e) { /* ignore */ }
-    return () => {
-      window.removeEventListener('blur', onBlur);
-      document.removeEventListener('visibilitychange', onVisibility);
-      document.removeEventListener('fullscreenchange', onFullscreenChange);
-    };
-  }, [triggerViolation]);
 
   const flushTimeOnCurrent = (st) => {
     if (st.questionEnteredAt == null) return st;
@@ -163,7 +144,7 @@ export function useExam(initialState, userId, onFinish) {
   }, []);
 
   return {
-    exam, violationWarning, dismissViolationWarning: () => setViolationWarning(0),
+    exam,
     goToQuestion, examNav, handleOptionClick, clearResponse, markForReview, saveAndNext, toggleLang, finish,
   };
 }
