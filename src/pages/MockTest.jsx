@@ -17,7 +17,7 @@ function canAccessMock(mock, isEnrolled, admin) {
 }
 
 export default function MockTest() {
-  const { DB, user, admin, isEnrolled, openModal } = useApp();
+  const { DB, user, hasFullAccess, isEnrolled, openModal } = useApp();
   const [subjectTab, setSubjectTab] = useState('math');
   const [searchQ, setSearchQ] = useState('');
   const [examFilter, setExamFilter] = useState('all');
@@ -84,7 +84,7 @@ export default function MockTest() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tests.length ? tests.map((t) => {
-          const locked = !canAccessMock(t, isEnrolled, admin);
+          const locked = !canAccessMock(t, isEnrolled, hasFullAccess);
           const attempts = DB.submissions.filter((s) => s.testId === t.id && user && s.studentId === user.id).length;
           return (
             <div key={t.id} className="card glow-border rounded-2xl p-5 flex flex-col">
