@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp } from '../../context/AppContext';
+import { isExemptEmail } from '../../lib/utils';
 
 const SUBJECTS = [['all', 'All Subjects'], ['math', 'Mathematics'], ['english', 'English'], ['reasoning', 'Reasoning'], ['gk', 'General Knowledge (GK)'], ['science', 'Science'], ['full', 'Full Combined Mock']];
 
@@ -13,7 +14,9 @@ export default function ResultsManager() {
   const testOptions = subjectFilter === 'all' ? [] : (DB.mockTests[subjectFilter] || []);
 
   const ranked = useMemo(() => {
-    let subs = DB.submissions.filter((s) => s.testType !== 'quiz' && s.testType !== 'pyq');
+    // Exempt mentor/admin accounts (see EXEMPT_ADMIN_EMAILS) are left out of this results
+    // dashboard too — their test-content-review attempts aren't real student results.
+    let subs = DB.submissions.filter((s) => s.testType !== 'quiz' && s.testType !== 'pyq' && !isExemptEmail(s.studentEmail));
     if (subjectFilter !== 'all') subs = subs.filter((s) => s.subject === subjectFilter);
     if (testFilter !== 'all') subs = subs.filter((s) => s.testId === testFilter);
     return subs.slice().sort((a, b) => b.score - a.score || a.timeTakenSec - b.timeTakenSec);
