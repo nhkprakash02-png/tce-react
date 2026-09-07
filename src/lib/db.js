@@ -14,6 +14,7 @@ export const FS_COLLECTION = 'tce_app_data';
 export const DB_KEYS = [
   'examCategories', 'banners', 'ticker', 'students', 'mockTests', 'quizPool', 'pyqSets',
   'submissions', 'materials', 'notices', 'inquiries', 'batches', 'mentors', 'quizDurations',
+  'urgentNotices',
 ];
 const FS_MAX_DOC_BYTES = 900000; // safety margin under Firestore's 1,048,576 byte/doc limit
 
