@@ -43,7 +43,15 @@ export default function Footer() {
           <p className="text-sm muted flex items-start gap-2 mb-2"><MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Near Nahata Anchal, Nahata, P.S. Gopalnagar, North 24 Parganas, West Bengal, PIN - 743290</p>
           <p className="text-sm muted flex items-center gap-2 mb-2"><Phone className="w-3.5 h-3.5" /> +91 73846 44030</p>
           <p className="text-sm muted flex items-center gap-2 mb-2"><Mail className="w-3.5 h-3.5" /> tcenahata@gmail.com</p>
-          <button onClick={() => openModal('adminLogin')} className="mt-3 text-xs muted underline">Admin Login</button>
+          <iframe
+            title="TCE location on Google Maps"
+            src={`https://www.google.com/maps?q=${encodeURIComponent('XPV4+7H Gopalnagar, Khamarkalla, West Bengal')}&output=embed`}
+            className="w-full h-40 sm:h-44 rounded-lg mt-1 mb-3"
+            style={{ border: '1px solid var(--border)' }}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+          <button onClick={() => openModal('adminLogin')} className="text-xs muted underline">Admin Login</button>
         </div>
       </div>
       <div className="text-center text-xs muted pb-6">© 2026 TCE - The Competitive Edge. All rights reserved.</div>
