@@ -7,6 +7,7 @@ import Ticker from './components/Ticker';
 import HeroCarousel from './components/HeroCarousel';
 import Mentors from './components/Mentors';
 import Modal from './components/Modal';
+import BackButton from './components/BackButton';
 import AuthModal, { GoogleRegisterModal } from './components/AuthModal';
 import EnrollModal from './components/EnrollModal';
 import AdminLoginModal from './components/AdminLoginModal';
@@ -63,6 +64,7 @@ export default function App() {
 
       {isHome && <Mentors />}
       <Footer />
+      <BackButton />
 
       {/* Floating action buttons — ported from index.html lines ~229-238 */}
       <div className="fixed bottom-5 right-5 z-40 flex flex-col gap-3">
