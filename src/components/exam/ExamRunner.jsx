@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Languages, Maximize, Menu, X, AlertTriangle } from 'lucide-react';
 import { useExam } from '../../hooks/useExam';
+import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
 const PALETTE_COLORS = {
   'not-visited': 'bg-gray-500 text-white',
@@ -22,6 +23,7 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [confirmLastQ, setConfirmLastQ] = useState(false);
+  useLockBodyScroll(true);
 
   const q = st.questions[st.current];
   const hasBn = st.questions.some((qq) => qq.textBn && qq.textBn.trim().length > 0);
