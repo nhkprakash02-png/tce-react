@@ -10,6 +10,7 @@ import MaterialsManager from '../components/admin/MaterialsManager';
 import BatchesManager from '../components/admin/BatchesManager';
 import BannersManager from '../components/admin/BannersManager';
 import NoticesManager from '../components/admin/NoticesManager';
+import UrgentNoticesManager from '../components/admin/UrgentNoticesManager';
 import SettingsManager from '../components/admin/SettingsManager';
 
 const TABS = [
@@ -22,6 +23,7 @@ const TABS = [
   ['materials', 'Materials', MaterialsManager],
   ['batches', 'Batches', BatchesManager],
   ['banners', 'Banner Slider', BannersManager],
+  ['urgent', 'Urgent Notices', UrgentNoticesManager],
   ['content', 'Notices', NoticesManager],
   ['settings', 'Settings', SettingsManager],
 ];
