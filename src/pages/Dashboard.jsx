@@ -1,8 +1,10 @@
-import React from 'react';
-import { Lock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Lock, BarChart2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import ResultScreen from '../components/exam/ResultScreen';
+import ReviewScreen from '../components/exam/ReviewScreen';
 
-function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, showAccuracy = true }) {
+function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, onAnalyze }) {
   const { setTab } = useApp();
   return (
     <div className="mb-8">
@@ -11,7 +13,7 @@ function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, showAccuracy = tr
         <table className="w-full text-xs card glow-border rounded-xl overflow-hidden">
           <thead className="card2">
             <tr className="text-left muted">
-              <th className="p-3">Test</th><th>Attempt</th><th>Score</th><th>Accuracy</th><th>Date</th>
+              <th className="p-3">Test</th><th>Attempt</th><th>Score</th><th>Accuracy</th><th>Date</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -22,9 +24,14 @@ function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, showAccuracy = tr
                 <td className="gold-text font-semibold">{s.score}/{s.maxScore}</td>
                 <td>{s.accuracy}%</td>
                 <td>{new Date(s.date).toLocaleDateString()}</td>
+                <td className="p-3">
+                  <button onClick={() => onAnalyze(s)} className="btn-gold rounded-md px-2.5 py-1.5 text-[11px] font-bold flex items-center gap-1 whitespace-nowrap">
+                    <BarChart2 className="w-3 h-3" />Analysis
+                  </button>
+                </td>
               </tr>
             )) : (
-              <tr><td className="p-3 muted" colSpan={5}>{emptyLabel} <button onClick={() => setTab(emptyTab)} className="gold-text underline">{onGo}</button></td></tr>
+              <tr><td className="p-3 muted" colSpan={6}>{emptyLabel} <button onClick={() => setTab(emptyTab)} className="gold-text underline">{onGo}</button></td></tr>
             )}
           </tbody>
         </table>
@@ -34,7 +41,9 @@ function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, showAccuracy = tr
 }
 
 export default function Dashboard() {
-  const { DB, user, openModal } = useApp();
+  const { DB, user, openModal, setTab } = useApp();
+  const [viewSub, setViewSub] = useState(null);
+  const [reviewing, setReviewing] = useState(false);
 
   if (!user) {
     return (
@@ -53,6 +62,11 @@ export default function Dashboard() {
   const mockSubs = subs.filter((s) => s.testType !== 'quiz' && s.testType !== 'pyq');
   const statusColor = rec.paymentStatus === 'Approved' ? 'bg-emerald-500/20 text-emerald-400'
     : rec.paymentStatus === 'Pending' ? 'bg-amber-500/20 gold-text' : 'bg-gray-500/20 muted';
+
+  // "Re-attempt" from a dashboard-opened analysis hands off to the relevant hub page, where a
+  // Re-attempt button for that exact test already exists — avoids duplicating the test-lookup/
+  // launch logic that MockTest.jsx / PyqHub.jsx / Quiz.jsx each already own.
+  const reattemptTabFor = (sub) => (sub.testType === 'pyq' ? 'pyq' : sub.testType === 'quiz' ? 'quiz' : 'mocks');
 
   return (
     <div>
@@ -75,9 +89,21 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <ScoreTable title="Mock Test Score History" rows={mockSubs} emptyLabel="No mock attempts yet." emptyTab="mocks" onGo="Take one now" />
-      <ScoreTable title="PYQ Attempts" rows={pyqSubs} emptyLabel="No PYQ attempts yet." emptyTab="pyq" onGo="Browse PYQ Hub" />
-      <ScoreTable title="Quiz Stats" rows={quizSubs} emptyLabel="No quiz attempts yet." emptyTab="quiz" onGo="Try one now" />
+      <ScoreTable title="Mock Test Score History" rows={mockSubs} emptyLabel="No mock attempts yet." emptyTab="mocks" onGo="Take one now" onAnalyze={setViewSub} />
+      <ScoreTable title="PYQ Attempts" rows={pyqSubs} emptyLabel="No PYQ attempts yet." emptyTab="pyq" onGo="Browse PYQ Hub" onAnalyze={setViewSub} />
+      <ScoreTable title="Quiz Stats" rows={quizSubs} emptyLabel="No quiz attempts yet." emptyTab="quiz" onGo="Try one now" onAnalyze={setViewSub} />
+
+      {viewSub && !reviewing && (
+        <ResultScreen
+          submission={viewSub} autoTimeout={false} autoViolation={false}
+          onReview={() => setReviewing(true)}
+          onReattempt={() => { const tab = reattemptTabFor(viewSub); setViewSub(null); setTab(tab); }}
+          onClose={() => setViewSub(null)}
+        />
+      )}
+      {viewSub && reviewing && (
+        <ReviewScreen submission={viewSub} onBackToSummary={() => setReviewing(false)} onClose={() => { setReviewing(false); setViewSub(null); }} />
+      )}
     </div>
   );
 }
