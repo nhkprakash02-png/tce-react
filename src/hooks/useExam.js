@@ -2,14 +2,10 @@
 // clearResponse, markForReview, saveAndNext, goToQuestion, timer) into one React hook.
 // Ported from index.html lines ~1690-1794.
 //
-// NOTE: the original's tab-switch/blur/fullscreen-exit anti-cheat system (3 warnings then
-// auto-submit) has been deliberately removed per request — it was firing on ordinary things
-// like an incoming phone call notification or briefly switching apps, and in some cases a
-// single tab-switch triggered both the `blur` and `visibilitychange` listeners at once,
-// silently double-counting toward the 3-strike limit and auto-submitting without the person
-// ever seeing an intermediate warning. The timer-based auto-submit (time runs out) and the
-// explicit "confirm before submitting the last question" prompt are both untouched below —
-// only the tab-switch/blur/fullscreen policing was removed.
+// NOTE: no anti-cheat / tab-switch policing here, by explicit final decision — it was tried,
+// removed, and re-added once already; this is confirmed as the settled behavior for both Mock
+// Tests and Quiz. Only the timer-based auto-submit (time runs out) and the explicit "confirm
+// before submitting the last question" prompt exist as auto-submit triggers.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveExamProgress } from '../lib/examEngine';
 
@@ -20,7 +16,7 @@ export function useExam(initialState, userId, onFinish) {
 
   const persist = useCallback((next) => { saveExamProgress(userId, next); }, [userId]);
 
-  // --- Timer (unchanged: still auto-submits the instant time runs out) ---
+  // --- Timer (still auto-submits the instant time runs out) ---
   useEffect(() => {
     const id = setInterval(() => {
       setExam((prev) => {
