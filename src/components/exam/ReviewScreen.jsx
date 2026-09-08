@@ -58,7 +58,7 @@ export default function ReviewScreen({ submission: sub, onBackToSummary, onClose
                   <div key={i} className="card2 rounded-xl p-4">
                     <p className="text-sm font-medium mb-2">{i + 1}. {dd.q.textEn}</p>
                     <div className="grid sm:grid-cols-2 gap-2">
-                      {dd.q.options.map((o) => <div key={o.key} className="text-xs px-3 py-1.5 rounded-md card">{o.key}. {o.textEn}</div>)}
+                      {(Array.isArray(dd.q.options) ? dd.q.options : []).map((o) => <div key={o.key} className="text-xs px-3 py-1.5 rounded-md card">{o.key}. {o.textEn}</div>)}
                     </div>
                   </div>
                 ))}
@@ -77,7 +77,7 @@ export default function ReviewScreen({ submission: sub, onBackToSummary, onClose
               </div>
               <p className="text-base sm:text-lg font-medium mb-6 leading-relaxed">{q.textEn} {q.textBn && <span className="bn block text-sm muted mt-1">{q.textBn}</span>}</p>
               <div className="space-y-3 mb-5">
-                {q.options.map((o) => {
+                {(Array.isArray(q.options) ? q.options : []).map((o) => {
                   let cls = 'card';
                   if (reattemptMode) {
                     if (localSel === o.key) cls = (localSel === q.correct) ? 'card ring-2 ring-emerald-500' : 'card ring-2 ring-red-500';
@@ -97,7 +97,7 @@ export default function ReviewScreen({ submission: sub, onBackToSummary, onClose
               </button>
               {showSolution && (
                 <div className="card2 rounded-xl p-4 text-sm muted">
-                  <p className="mb-1"><b className="text-emerald-400">Correct Answer:</b> {q.correct}. {(q.options.find((o) => o.key === q.correct) || {}).textEn || ''}</p>
+                  <p className="mb-1"><b className="text-emerald-400">Correct Answer:</b> {q.correct}. {((Array.isArray(q.options) ? q.options : []).find((o) => o.key === q.correct) || {}).textEn || ''}</p>
                   <p>{q.explanation || 'No explanation provided for this question.'}</p>
                   {q.solutionImg && <img src={q.solutionImg} className="mt-2 rounded-lg max-h-52" alt="Solution" />}
                 </div>
