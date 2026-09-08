@@ -14,13 +14,22 @@ export default function ResultsManager() {
   const testOptions = subjectFilter === 'all' ? [] : (DB.mockTests[subjectFilter] || []);
 
   const ranked = useMemo(() => {
-    // Exempt mentor/admin accounts (see EXEMPT_ADMIN_EMAILS) are left out of this results
-    // dashboard too — their test-content-review attempts aren't real student results.
-    let subs = DB.submissions.filter((s) => s.testType !== 'quiz' && s.testType !== 'pyq' && !isExemptEmail(s.studentEmail));
+    // Admin results view is restricted to: paid mock tests only (excludes free-demo mocks,
+    // Quick Quiz, and PYQ Hub entirely), first attempt only per student, and excludes the
+    // exempt mentor/admin accounts (see EXEMPT_ADMIN_EMAILS) whose attempts aren't real student
+    // results. This does NOT affect what students see on their own Dashboard — that still shows
+    // every attempt, for every test type, unfiltered.
+    let subs = DB.submissions.filter((s) => {
+      if (s.testType !== 'mock') return false;
+      if (s.attempt !== 1) return false;
+      if (isExemptEmail(s.studentEmail)) return false;
+      const test = (DB.mockTests[s.subject] || []).find((t) => t.id === s.testId);
+      return !!test && !test.isDemo; // paid/premium mocks only — must still exist and not be the free demo
+    });
     if (subjectFilter !== 'all') subs = subs.filter((s) => s.subject === subjectFilter);
     if (testFilter !== 'all') subs = subs.filter((s) => s.testId === testFilter);
     return subs.slice().sort((a, b) => b.score - a.score || a.timeTakenSec - b.timeTakenSec);
-  }, [DB.submissions, subjectFilter, testFilter]);
+  }, [DB.submissions, DB.mockTests, subjectFilter, testFilter]);
 
   const exportResultsExcel = () => {
     const rows = ranked.map((s, i) => ({ Rank: i + 1, Student: s.studentName, Phone: s.studentPhone, Test: s.testTitle, Attempt: s.attempt, Score: s.score, MaxScore: s.maxScore, Accuracy: s.accuracy, TimeTakenSec: s.timeTakenSec, Date: new Date(s.date).toLocaleString() }));
@@ -30,6 +39,7 @@ export default function ResultsManager() {
 
   return (
     <div>
+      <p className="text-xs muted mb-3">Showing <b>paid mock tests only</b> (free demos, Quick Quiz, and PYQ Hub excluded), <b>first attempt only</b> per student. Students can still see all of their own attempts on every test type from their own Dashboard.</p>
       <div className="flex flex-wrap gap-3 items-center mb-4">
         <select value={subjectFilter} onChange={(e) => { setSubjectFilter(e.target.value); setTestFilter('all'); }} className="rounded-lg px-3 py-2 text-xs">
           {SUBJECTS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
