@@ -77,6 +77,13 @@ export function sectionDisplayName(subject) {
   return map[subject] || (subject ? subject.charAt(0).toUpperCase() + subject.slice(1) : 'Section');
 }
 
+// Quiz duration formula: ~30 seconds per question, rounded up to the nearest whole minute.
+// Matches the requested presets exactly (5→3, 10→5, 15→8, 20→10) and extends the same rule to
+// any custom question count the student enters.
+export function quizDurationMinutes(questionCount) {
+  return Math.max(1, Math.ceil(questionCount * 0.5));
+}
+
 // Scores a finished exam and builds the submission record (mirrors finishExam()'s scoring half).
 export function buildSubmission(examState, DB, user) {
   const st = examState;
