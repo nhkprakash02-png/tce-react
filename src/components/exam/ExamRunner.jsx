@@ -27,6 +27,7 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
   useLockBodyScroll(true);
 
   const q = st.questions[st.current];
+  const qOptions = Array.isArray(q?.options) ? q.options : []; // never let a malformed question crash the render
   const hasBn = st.questions.some((qq) => qq.textBn && qq.textBn.trim().length > 0);
   const label = (opt) => (st.lang === 'bn' && opt.textBn) ? opt.textBn : opt.textEn;
 
@@ -83,10 +84,10 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
               <span className="text-xs muted">Marks: <span className="text-emerald-400 font-semibold">+{st.marksCorrect}</span> / <span className="text-red-400 font-semibold">-{st.marksWrong}</span></span>
             </div>
             <p className={`text-base sm:text-lg font-medium mb-6 leading-relaxed ${(st.lang === 'bn' && q.textBn) ? 'bn' : ''}`}>
-              {(st.lang === 'bn' && q.textBn) ? q.textBn : q.textEn}
+              {(st.lang === 'bn' && q.textBn) ? q.textBn : (q.textEn || 'This question could not be loaded.')}
             </p>
             <div className="space-y-3">
-              {q.options.map((o) => {
+              {qOptions.length ? qOptions.map((o) => {
                 const checked = st.answers[st.current] === o.key;
                 return (
                   <label key={o.key} className={`flex items-center gap-3 card rounded-xl px-4 py-3 cursor-pointer ${checked ? 'ring-2 ring-amber-500' : ''}`}>
@@ -95,7 +96,8 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
                     <span className={`text-sm ${(st.lang === 'bn' && o.textBn) ? 'bn' : ''}`}>{label(o)}</span>
                   </label>
                 );
-              })}
+              })
+              : <p className="muted text-sm">No answer options are available for this question — please skip it and let us know via WhatsApp.</p>}
             </div>
           </div>
         </div>
