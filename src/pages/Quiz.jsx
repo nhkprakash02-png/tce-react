@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Zap, Play } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { shuffle, resolveCorrectKey, quizDurationMinutes } from '../lib/examEngine';
+import { shuffle, quizDurationMinutes, normalizeQuestion } from '../lib/examEngine';
 import Modal from '../components/Modal';
 import ExamFlow from '../components/exam/ExamFlow';
 
@@ -42,12 +42,12 @@ function QuizPickerModal({ onClose, onPick }) {
   );
 }
 
-// A question is only usable if it has real text and at least 2 valid options — this guards
-// against corrupted bulk-uploaded entries (e.g. a bad JSON import where `options` ended up
-// missing or malformed) ever reaching the exam screen and crashing it.
+// A question is only usable if it has real question text and at least 2 non-empty options
+// AFTER normalization — this repairs common alternate upload shapes (plain-string options,
+// options missing a `key`, etc.) rather than just rejecting anything that isn't already in
+// the exact expected shape, which is what was incorrectly discarding valid questions before.
 function isUsableQuestion(q) {
-  return !!(q && q.textEn && Array.isArray(q.options) && q.options.length >= 2 &&
-    q.options.every((o) => o && typeof o.key === 'string' && (o.textEn || o.textBn)));
+  return !!(q && q.textEn && q.options.length >= 2);
 }
 
 export default function Quiz() {
@@ -58,9 +58,9 @@ export default function Quiz() {
   const startQuiz = (qCount) => {
     setPickerOpen(false);
     if (!user) { alert('Please login to start the quiz.'); openModal('login'); return; }
-    const gkOnly = DB.quizPool.filter((q) => q.subject === 'gk' && isUsableQuestion(q));
+    const gkOnly = DB.quizPool.filter((q) => q.subject === 'gk').map(normalizeQuestion).filter(isUsableQuestion);
     if (!gkOnly.length) { alert('No usable GK questions are available yet. Please check back soon.'); return; }
-    const pool = shuffle(gkOnly).slice(0, Math.min(qCount, gkOnly.length)).map((q) => ({ ...q, correct: resolveCorrectKey(q) }));
+    const pool = shuffle(gkOnly).slice(0, Math.min(qCount, gkOnly.length));
     const mins = quizDurationMinutes(pool.length);
     const test = {
       id: 'quiz_' + pool.length, title: `Quick Quiz — GK — ${pool.length} Questions`,
