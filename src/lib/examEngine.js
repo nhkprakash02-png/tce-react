@@ -72,6 +72,35 @@ export function resolveCorrectKey(q) {
   return 'A';
 }
 
+// Converts whatever shape a question's options were uploaded/stored in — plain strings,
+// objects missing a `key`, objects using `text`/`label` instead of `textEn`, etc. — into the
+// canonical { key, textEn, textBn } shape the exam UI expects. This is what actually fixes
+// "no usable questions" false rejections: instead of just checking the shape is already
+// perfect (and silently discarding everything if it isn't), this repairs it on the fly.
+export function normalizeOptions(rawOptions) {
+  if (!Array.isArray(rawOptions)) return [];
+  return rawOptions
+    .map((o, i) => {
+      const fallbackKey = String.fromCharCode(65 + i);
+      if (o && typeof o === 'object') {
+        const key = (typeof o.key === 'string' && o.key.trim()) ? o.key.trim().toUpperCase() : fallbackKey;
+        const textEn = (o.textEn || o.text || o.label || o.value || '').toString().trim();
+        return { key, textEn, textBn: o.textBn || '' };
+      }
+      return { key: fallbackKey, textEn: (o ?? '').toString().trim(), textBn: '' };
+    })
+    .filter((o) => o.textEn.length > 0);
+}
+
+// Full pipeline: normalize a raw question (however it was uploaded) into one the exam engine
+// can render safely — normalized options first, then resolve the correct-answer key against
+// those normalized options (so the text-matching fallback in resolveCorrectKey works too).
+export function normalizeQuestion(q) {
+  const options = normalizeOptions(q.options);
+  const withOptions = { ...q, options };
+  return { ...withOptions, correct: resolveCorrectKey(withOptions) };
+}
+
 export function sectionDisplayName(subject) {
   const map = { math: 'Elementary Mathematics', english: 'English Language', reasoning: 'General Reasoning', gk: 'General Knowledge', full: 'Combined Section', quiz: 'General Knowledge', pyq: 'Previous Year Section' };
   return map[subject] || (subject ? subject.charAt(0).toUpperCase() + subject.slice(1) : 'Section');
