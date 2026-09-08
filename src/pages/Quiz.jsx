@@ -42,6 +42,14 @@ function QuizPickerModal({ onClose, onPick }) {
   );
 }
 
+// A question is only usable if it has real text and at least 2 valid options — this guards
+// against corrupted bulk-uploaded entries (e.g. a bad JSON import where `options` ended up
+// missing or malformed) ever reaching the exam screen and crashing it.
+function isUsableQuestion(q) {
+  return !!(q && q.textEn && Array.isArray(q.options) && q.options.length >= 2 &&
+    q.options.every((o) => o && typeof o.key === 'string' && (o.textEn || o.textBn)));
+}
+
 export default function Quiz() {
   const { DB, user, openModal } = useApp();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -50,8 +58,8 @@ export default function Quiz() {
   const startQuiz = (qCount) => {
     setPickerOpen(false);
     if (!user) { alert('Please login to start the quiz.'); openModal('login'); return; }
-    const gkOnly = DB.quizPool.filter((q) => q.subject === 'gk');
-    if (!gkOnly.length) { alert('No GK questions are available yet. Please check back soon.'); return; }
+    const gkOnly = DB.quizPool.filter((q) => q.subject === 'gk' && isUsableQuestion(q));
+    if (!gkOnly.length) { alert('No usable GK questions are available yet. Please check back soon.'); return; }
     const pool = shuffle(gkOnly).slice(0, Math.min(qCount, gkOnly.length)).map((q) => ({ ...q, correct: resolveCorrectKey(q) }));
     const mins = quizDurationMinutes(pool.length);
     const test = {
