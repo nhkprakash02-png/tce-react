@@ -4,7 +4,6 @@ import { useApp } from '../../context/AppContext';
 import { uid } from '../../lib/utils';
 import { resolveCorrectKey } from '../../lib/examEngine';
 
-const QUIZ_LENGTHS = ['5', '10', '15', '20'];
 const EMPTY = { en: '', bn: '', a: '', b: '', c: '', d: '', correct: 'A', exp: '' };
 
 export default function GkQuizManager() {
@@ -13,12 +12,6 @@ export default function GkQuizManager() {
   const [bulkJson, setBulkJson] = useState('');
 
   const gkQuestions = DB.quizPool.filter((q) => q.subject === 'gk');
-
-  const updateQuizDuration = (qCount, minutes) => {
-    const val = parseFloat(minutes);
-    if (!(val > 0)) return;
-    saveDB((prev) => ({ ...prev, quizDurations: { ...prev.quizDurations, [qCount]: val } }));
-  };
 
   const addGkQuizQuestion = () => {
     const { en, bn, a, b, c, d, correct, exp } = form;
@@ -55,16 +48,8 @@ export default function GkQuizManager() {
   return (
     <div>
       <div className="card2 rounded-xl p-4 mb-4">
-        <p className="text-xs font-bold muted uppercase mb-2">Quick Quiz Duration (minutes per mode)</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-          {QUIZ_LENGTHS.map((q) => (
-            <div key={q}>
-              <label className="text-[10px] muted block mb-1">{q} Questions</label>
-              <input type="number" min="1" step="1" defaultValue={DB.quizDurations[q]} onBlur={(e) => updateQuizDuration(q, e.target.value)} className="w-full rounded-lg px-3 py-2 text-xs" />
-            </div>
-          ))}
-        </div>
-        <p className="text-[11px] muted">Sets the exact time limit (in minutes) students get for each Quick Quiz length.</p>
+        <p className="text-xs font-bold muted uppercase mb-1">Quiz Duration — Automatic</p>
+        <p className="text-[11px] muted">Timer is now calculated automatically (~30 seconds per question) whenever a student starts a quiz — no manual setup needed here anymore.</p>
       </div>
 
       <div className="card2 rounded-xl p-4 mb-4">
