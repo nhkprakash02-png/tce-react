@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { uid } from '../../lib/utils';
-import { resolveCorrectKey } from '../../lib/examEngine';
+import { resolveCorrectKey, normalizeOptions } from '../../lib/examEngine';
 
 const EMPTY = { en: '', bn: '', a: '', b: '', c: '', d: '', correct: 'A', exp: '' };
 
@@ -24,15 +24,46 @@ export default function GkQuizManager() {
   const bulkUploadGkQuiz = () => {
     try {
       const arr = JSON.parse(bulkJson.trim());
-      const newQs = arr.map((q) => ({ id: uid('q'), subject: 'gk', textEn: q.textEn || '', textBn: q.textBn || '', options: q.options || [], correct: resolveCorrectKey(q), explanation: q.explanation || '', solutionImg: q.solutionImg || '' }));
+      // Accepts a few common alternate field names for the options list (some JSON generators
+      // use "choices" or "answerOptions" instead of "options") and normalizes whatever shape
+      // they're in (array of strings, object keyed by letter, etc.) into the canonical form
+      // BEFORE saving — this is what actually preserves the data correctly going forward,
+      // rather than silently storing an empty options list.
+      const newQs = arr.map((q) => {
+        const rawOptions = q.options || q.choices || q.answerOptions || q.answers;
+        const options = normalizeOptions(rawOptions);
+        const withOptions = { ...q, options };
+        return { id: uid('q'), subject: 'gk', textEn: q.textEn || q.text || q.question || '', textBn: q.textBn || '', options, correct: resolveCorrectKey(withOptions), explanation: q.explanation || '', solutionImg: q.solutionImg || '' };
+      });
+      const skipped = newQs.filter((q) => !q.textEn || q.options.length < 2).length;
       saveDB((prev) => ({ ...prev, quizPool: [...prev.quizPool, ...newQs] }));
       setBulkJson('');
+      if (skipped > 0) alert(`Uploaded ${newQs.length} questions, but ${skipped} of them are missing question text or at least 2 options — you may want to check and re-upload those specific ones.`);
     } catch (e) { alert('Invalid JSON: ' + e.message); }
   };
 
   const deleteGkQuizQuestion = (qid) => {
     if (!confirm('Delete this GK question?')) return;
     saveDB((prev) => ({ ...prev, quizPool: prev.quizPool.filter((q) => q.id !== qid) }));
+  };
+
+  // One-tap repair for questions already saved before this fix existed: re-normalizes every
+  // GK question's options in place (handles options that got saved as plain strings, an
+  // object keyed by letter, or under a differently-named field) without deleting anything.
+  const repairAllGkQuestions = () => {
+    if (!gkQuestions.length) return;
+    if (!confirm(`Attempt to repair answer options for all ${gkQuestions.length} GK questions? This will not delete anything.`)) return;
+    saveDB((prev) => ({
+      ...prev,
+      quizPool: prev.quizPool.map((q) => {
+        if (q.subject !== 'gk') return q;
+        if (Array.isArray(q.options) && q.options.length >= 2 && q.options.every((o) => o && o.key && (o.textEn || o.textBn))) return q; // already fine
+        const rawOptions = q.options || q.choices || q.answerOptions || q.answers;
+        const options = normalizeOptions(rawOptions);
+        return { ...q, options, correct: resolveCorrectKey({ ...q, options }) };
+      }),
+    }));
+    alert('Repair attempted. Scroll down to check the "Options" preview under each question below to confirm.');
   };
 
   // Temporary bulk-fix tool: lets the admin wipe the entire quiz pool in one tap when a bad
@@ -79,21 +110,38 @@ export default function GkQuizManager() {
         <button onClick={bulkUploadGkQuiz} className="btn-gold rounded-lg px-4 py-2 text-xs font-bold mt-2">Upload Bulk to GK Quiz Pool</button>
       </div>
 
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <p className="text-xs font-bold muted uppercase">GK Quiz Pool ({gkQuestions.length} questions)</p>
         {gkQuestions.length > 0 && (
-          <button onClick={deleteAllGkQuizQuestions} className="rounded-lg px-3 py-1.5 text-[11px] font-bold bg-red-600 text-white flex items-center gap-1">
-            <Trash2 className="w-3.5 h-3.5" />Delete All Quiz Questions
-          </button>
+          <div className="flex gap-2">
+            <button onClick={repairAllGkQuestions} className="rounded-lg px-3 py-1.5 text-[11px] font-bold btn-gold">
+              Repair Options for All Questions
+            </button>
+            <button onClick={deleteAllGkQuizQuestions} className="rounded-lg px-3 py-1.5 text-[11px] font-bold bg-red-600 text-white flex items-center gap-1">
+              <Trash2 className="w-3.5 h-3.5" />Delete All Quiz Questions
+            </button>
+          </div>
         )}
       </div>
       <div className="space-y-2">
-        {gkQuestions.map((q, i) => (
-          <div key={q.id} className="card rounded-lg p-3 flex justify-between items-start gap-3">
-            <div><p className="text-xs font-medium">{i + 1}. {q.textEn}</p><p className="text-[10px] muted mt-1">Correct: {q.correct}</p></div>
-            <button onClick={() => deleteGkQuizQuestion(q.id)} className="text-red-400"><Trash2 className="w-4 h-4" /></button>
-          </div>
-        ))}
+        {gkQuestions.map((q, i) => {
+          const opts = Array.isArray(q.options) ? q.options : [];
+          const broken = opts.length < 2;
+          return (
+            <div key={q.id} className={`card rounded-lg p-3 flex justify-between items-start gap-3 ${broken ? 'ring-1 ring-red-500' : ''}`}>
+              <div className="min-w-0">
+                <p className="text-xs font-medium">{i + 1}. {q.textEn}</p>
+                <p className="text-[10px] muted mt-1">Correct: {q.correct}</p>
+                {broken ? (
+                  <p className="text-[10px] text-red-400 mt-1">⚠ No usable answer options saved for this question — try "Repair Options for All Questions" above.</p>
+                ) : (
+                  <p className="text-[10px] muted mt-1">Options: {opts.map((o) => `${o.key}) ${o.textEn}`).join('   ')}</p>
+                )}
+              </div>
+              <button onClick={() => deleteGkQuizQuestion(q.id)} className="text-red-400 shrink-0"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
