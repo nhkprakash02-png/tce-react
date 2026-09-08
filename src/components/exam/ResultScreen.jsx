@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, ImageDown, MessageCircle, Repeat } from 'lucide-react';
+import { ArrowLeft, Trophy, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, ImageDown, MessageCircle, Repeat } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { sectionDisplayName, buildLeaderboard, downloadScorecard, shareScorecardWhatsApp } from '../../lib/examEngine';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
@@ -26,6 +26,14 @@ export default function ResultScreen({ submission: sub, autoTimeout, autoViolati
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--bg)' }}>
+      <button
+        onClick={onClose}
+        className="fixed top-4 left-4 z-10 flex items-center gap-1.5 px-3 py-2 rounded-full btn-ghost text-xs font-bold shadow-lg"
+        style={{ background: 'var(--panel)' }}
+        title="Back to where you started this test"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" /> Back
+      </button>
       <div className="max-w-3xl mx-auto px-4 py-10">
         {autoTimeout && <div className="mb-4 text-center text-xs bg-amber-500/15 gold-text rounded-lg py-2">⏱ Time up — test auto-submitted.</div>}
         {autoViolation && <div className="mb-4 text-center text-xs bg-red-500/15 text-red-400 rounded-lg py-2">⚠ Auto-submitted after 3 tab-switch violations.</div>}
