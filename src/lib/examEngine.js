@@ -73,11 +73,20 @@ export function resolveCorrectKey(q) {
 }
 
 // Converts whatever shape a question's options were uploaded/stored in — plain strings,
-// objects missing a `key`, objects using `text`/`label` instead of `textEn`, etc. — into the
+// objects missing a `key`, objects using `text`/`label` instead of `textEn`, or even an
+// object keyed by letter (e.g. {"A": "...", "B": "..."}) instead of an array — into the
 // canonical { key, textEn, textBn } shape the exam UI expects. This is what actually fixes
 // "no usable questions" false rejections: instead of just checking the shape is already
 // perfect (and silently discarding everything if it isn't), this repairs it on the fly.
 export function normalizeOptions(rawOptions) {
+  if (!rawOptions) return [];
+  // Object-keyed shape, e.g. {"A": "Delhi", "B": "Mumbai", ...} or {"a": "...", "b": "..."}
+  if (!Array.isArray(rawOptions) && typeof rawOptions === 'object') {
+    return Object.keys(rawOptions)
+      .sort()
+      .map((k) => ({ key: k.trim().toUpperCase(), textEn: (rawOptions[k] ?? '').toString().trim(), textBn: '' }))
+      .filter((o) => o.textEn.length > 0);
+  }
   if (!Array.isArray(rawOptions)) return [];
   return rawOptions
     .map((o, i) => {
