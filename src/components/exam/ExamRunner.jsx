@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Languages, Maximize, Menu, X } from 'lucide-react';
 import { useExam } from '../../hooks/useExam';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
@@ -11,6 +11,15 @@ const PALETTE_COLORS = {
   'answered-marked': 'bg-purple-500 text-white',
 };
 
+// Swipe navigation is intentionally mobile/tablet PORTRAIT only — checked fresh at the moment
+// of each touch (not cached in state), so it correctly turns itself off if the device is
+// rotated to landscape or the exam is opened on a desktop-sized window.
+const SWIPE_MAX_WIDTH = 1024; // matches the existing lg: breakpoint used for the desktop palette layout
+const SWIPE_MIN_DISTANCE = 60; // px
+function isMobilePortraitViewport() {
+  return window.innerWidth < SWIPE_MAX_WIDTH && window.innerHeight > window.innerWidth;
+}
+
 function fmtTimer(s) {
   const h = String(Math.floor(s / 3600)).padStart(2, '0');
   const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
@@ -22,8 +31,8 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
   const { exam: st, goToQuestion, examNav, handleOptionClick, clearResponse, markForReview, saveAndNext, toggleLang, finish } = useExam(initialExam, user.id, onFinish);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
-  const [confirmLastQ, setConfirmLastQ] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const touchRef = useRef(null);
   useLockBodyScroll(true);
 
   const q = st.questions[st.current];
@@ -31,11 +40,34 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
   const hasBn = st.questions.some((qq) => qq.textBn && qq.textBn.trim().length > 0);
   const label = (opt) => (st.lang === 'bn' && opt.textBn) ? opt.textBn : opt.textEn;
 
-  const handleSaveAndNext = () => { if (saveAndNext()) setConfirmLastQ(true); };
+  // Reaching "Save & Next" on the LAST question now opens the same full submit-confirmation
+  // popup (with the answered/marked/not-visited breakdown) as the manual "Submit Test" button,
+  // instead of a separate simpler prompt — one consistent confirmation experience either way.
+  const handleSaveAndNext = () => { if (saveAndNext()) { setPaletteOpen(false); setConfirmSubmit(true); } };
+
+  // Tapping "Submit Test" while the mobile/tablet palette panel is open closes that panel at
+  // the same moment the confirmation popup opens, so the popup is never left hidden behind it.
+  const handleSubmitTestTap = () => { setPaletteOpen(false); setConfirmSubmit(true); };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
     else document.exitFullscreen().catch(() => {});
+  };
+
+  const onTouchStart = (e) => {
+    if (!isMobilePortraitViewport()) { touchRef.current = null; return; }
+    touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const onTouchEnd = (e) => {
+    if (!touchRef.current || !isMobilePortraitViewport()) { touchRef.current = null; return; }
+    const dx = e.changedTouches[0].clientX - touchRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchRef.current.y;
+    touchRef.current = null;
+    // Require a clearly horizontal swipe so normal vertical scrolling never gets mistaken for one.
+    if (Math.abs(dx) >= SWIPE_MIN_DISTANCE && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) examNav(1); // swipe left -> next question
+      else examNav(-1); // swipe right -> previous question
+    }
   };
 
   const answered = st.status.filter((s) => s === 'answered' || s === 'answered-marked').length;
@@ -48,9 +80,9 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
       <div className="flex items-center justify-between px-4 py-3 card2" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-3">
           {logoError ? (
-            <div className="w-8 h-8 rounded-lg gold-grad flex items-center justify-center font-display font-800 text-ink text-sm">T</div>
+            <div className="w-8 h-8 rounded-full gold-grad flex items-center justify-center font-display font-800 text-ink text-sm">T</div>
           ) : (
-            <img src="/logo.png" alt="TCE" onError={() => setLogoError(true)} className="w-8 h-8 rounded-lg object-cover" />
+            <img src="/logo.png" alt="TCE" onError={() => setLogoError(true)} className="w-8 h-8 rounded-full object-cover" />
           )}
           <div><p className="text-xs font-semibold">TCE — {st.title}</p><p className="text-[10px] muted">Candidate: {user.name}</p></div>
         </div>
@@ -66,12 +98,14 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        <div className="flex-1 overflow-y-auto p-5 sm:p-8 relative">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-8 relative" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           {!logoError && (
-            <img
-              src="/logo.png" alt="" onError={() => setLogoError(true)} aria-hidden="true"
-              className="pointer-events-none select-none absolute inset-0 m-auto w-2/5 max-w-[380px] opacity-[0.06] z-0"
-            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute inset-0 m-auto w-2/5 max-w-[380px] aspect-square rounded-full overflow-hidden opacity-[0.06] z-0"
+            >
+              <img src="/logo.png" alt="" onError={() => setLogoError(true)} className="w-full h-full object-cover" />
+            </div>
           )}
           {logoError && (
             <div aria-hidden="true" className="pointer-events-none select-none absolute inset-0 flex items-center justify-center z-0">
@@ -127,7 +161,7 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
             </div>
           </div>
           <div className="shrink-0 p-4" style={{ borderTop: '1px solid var(--border)' }}>
-            <button onClick={() => setConfirmSubmit(true)} className="w-full rounded-lg py-2.5 text-xs font-bold bg-red-600 text-white">Submit Test</button>
+            <button onClick={handleSubmitTestTap} className="w-full rounded-lg py-2.5 text-xs font-bold bg-red-600 text-white">Submit Test</button>
           </div>
         </div>
 
@@ -145,18 +179,6 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
         </div>
       </div>
 
-      {confirmLastQ && (
-        <div className="fixed inset-0 z-[60] modal-backdrop flex items-center justify-center p-4">
-          <div className="card glow-border rounded-2xl p-6 max-w-sm text-center">
-            <h3 className="font-display font-700 text-lg mb-5">Do you want to submit?</h3>
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmLastQ(false)} className="flex-1 btn-ghost rounded-lg py-2.5 text-xs font-bold">No</button>
-              <button onClick={() => finish(false, false)} className="flex-1 rounded-lg py-2.5 text-xs font-bold bg-red-600 text-white">Yes</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {confirmSubmit && (
         <div className="fixed inset-0 z-[60] modal-backdrop flex items-center justify-center p-4">
           <div className="card glow-border rounded-2xl p-6 max-w-sm">
@@ -169,7 +191,7 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setConfirmSubmit(false)} className="flex-1 btn-ghost rounded-lg py-2.5 text-xs font-bold">Continue Exam</button>
-              <button onClick={() => finish(false, false)} className="flex-1 rounded-lg py-2.5 text-xs font-bold bg-red-600 text-white">Yes, Submit</button>
+              <button onClick={() => finish(false, false)} className="flex-1 rounded-lg py-2.5 text-xs font-bold bg-red-600 text-white">Yes, I want to submit</button>
             </div>
           </div>
         </div>
