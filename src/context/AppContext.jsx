@@ -6,6 +6,7 @@ import { loadDB, saveDB as persistDB, attachDbRealtimeListeners, loadBanners } f
 import { seedDB, normalizeDB } from '../lib/seedData';
 import { fbAuth } from '../firebase';
 import { isExemptEmail } from '../lib/utils';
+import { PATH_FOR_TAB, tabForPath } from '../lib/routes';
 
 const CUR_KEY = 'currentUser';
 const ADM_KEY = 'tce_admin_session_v1';
@@ -22,7 +23,7 @@ export function AppProvider({ children }) {
   });
   const [admin, setAdminState] = useState(() => localStorage.getItem(ADM_KEY) === '1');
   const [theme, setThemeState] = useState(() => localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark');
-  const [activeTab, setActiveTabState] = useState('home');
+  const [activeTab, setActiveTabState] = useState(() => tabForPath(window.location.pathname));
   const [tabStack, setTabStack] = useState([]); // history of previously-visited tabs, for goBack()
   const [examInProgress, setExamInProgress] = useState(false); // mirrors original's `examState` guard
   // Replaces original's openModal(html)/closeModal() + #modalRoot innerHTML swap (lines ~951-980).
@@ -76,11 +77,14 @@ export function AppProvider({ children }) {
 
   // setTab records where you came FROM onto a small history stack, so goBack() can retrace
   // your steps within the app (Home, Mock Tests, Dashboard, etc.) — this is what powers the
-  // on-page Back button, since the app is a single-page tab-switcher, not real browser pages.
+  // on-page Back button. It also updates the real URL (via pushState) so each section has its
+  // own shareable/bookmarkable/indexable address instead of everything living at "/".
   const setTab = useCallback((id) => {
     setActiveTabState((prev) => {
       if (prev !== id) {
         setTabStack((stack) => [...stack, prev].slice(-20)); // cap history length
+        const path = PATH_FOR_TAB[id] || '/';
+        if (window.location.pathname !== path) window.history.pushState({}, '', path);
       }
       return id;
     });
@@ -89,12 +93,22 @@ export function AppProvider({ children }) {
 
   const goBack = useCallback(() => {
     setTabStack((stack) => {
-      if (!stack.length) { setActiveTabState('home'); return stack; }
-      const next = stack.slice(0, -1);
-      setActiveTabState(stack[stack.length - 1]);
-      return next;
+      const nextTab = stack.length ? stack[stack.length - 1] : 'home';
+      const path = PATH_FOR_TAB[nextTab] || '/';
+      if (window.location.pathname !== path) window.history.pushState({}, '', path);
+      setActiveTabState(nextTab);
+      return stack.length ? stack.slice(0, -1) : stack;
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Keeps activeTab in sync with the browser's own Back/Forward buttons (which the real URLs
+  // above now make meaningful) — this is separate from, and doesn't interfere with, the
+  // in-app Back button's own tabStack above.
+  useEffect(() => {
+    const onPopState = () => setActiveTabState(tabForPath(window.location.pathname));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   // Call after any in-memory DB mutation to persist to Firestore (fire-and-forget, matches
