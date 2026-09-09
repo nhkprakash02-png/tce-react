@@ -4,9 +4,9 @@ import { useApp } from '../context/AppContext';
 import { computeHomeLeaderboard } from '../lib/examEngine';
 import Avatar from './Avatar';
 
-const CONTAINER_HEIGHT = 200; // px — total chart height, bars + headroom for avatar/crown
+const CONTAINER_HEIGHT = 220; // px — total chart height, bars + headroom for avatar/crown
 const MIN_BAR_PX = 46;
-const MAX_BAR_PX = 140; // leaves headroom above the tallest bar for the avatar + crown
+const MAX_BAR_PX = 128; // leaves headroom above the tallest bar for the (now larger) avatar + crown
 
 const RANK_STYLE = [
   { crown: '#FBBF24', bar: 'linear-gradient(180deg, #FBBF24, #D97706)' }, // gold
@@ -28,11 +28,11 @@ export default function HomeLeaderboard() {
   if (!top5.length) return null; // nothing to show yet — don't clutter the homepage with an empty chart
 
   return (
-    <div className="mb-10 card glow-border rounded-2xl p-5 sm:p-7">
+    <div className="mb-10 card glow-border rounded-2xl p-4 sm:p-7 overflow-hidden">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-8">
-        <div>
-          <h3 className="font-display font-800 text-lg flex items-center gap-2"><TrendingUp className="w-5 h-5 gold-text" />Top 5 Leaderboard</h3>
-          <p className="text-xs muted mt-0.5">Ranked by average score on paid mock tests (first attempt only)</p>
+        <div className="min-w-0">
+          <h3 className="font-display font-800 text-lg flex items-center gap-2"><TrendingUp className="w-5 h-5 gold-text shrink-0" />Top 5 Leaderboard</h3>
+          <p className="text-xs muted mt-0.5">Ranked by average score on paid mock tests</p>
         </div>
         <div className="flex items-center card2 rounded-full p-1 text-xs font-bold shrink-0">
           <button onClick={() => setPeriod('weekly')} className={`px-4 py-1.5 rounded-full transition-colors ${period === 'weekly' ? 'tab-active' : 'muted'}`}>Weekly</button>
@@ -45,13 +45,13 @@ export default function HomeLeaderboard() {
           const barPx = Math.round(MIN_BAR_PX + (MAX_BAR_PX - MIN_BAR_PX) * (maxAvg > 0 ? s.avgPct / maxAvg : 0));
           const style = RANK_STYLE[i] || RANK_STYLE[4];
           return (
-            <div key={s.studentId} className="flex-1 relative h-full" style={{ borderColor: 'var(--border)' }}>
+            <div key={s.studentId} className="flex-1 min-w-0 relative h-full" style={{ borderColor: 'var(--border)' }}>
               {/* Avatar + tilted crown, always sitting right on top of this bar regardless of its height */}
               <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: barPx }}>
-                <div className="relative pt-2">
+                <div className="relative pt-4">
                   <Crown
-                    className="absolute -top-0.5 -right-1 w-5 h-5"
-                    style={{ color: style.crown, transform: 'rotate(30deg)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.4))' }}
+                    className="absolute -top-1.5 -right-2.5 w-8 h-8 sm:w-9 sm:h-9"
+                    style={{ color: style.crown, transform: 'rotate(30deg)', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }}
                     fill={style.crown}
                   />
                   <Avatar name={s.studentName} photoURL={photoFor(s.studentId)} sizeClass="w-10 h-10 sm:w-12 sm:h-12" textSizeClass="text-sm sm:text-base" className="ring-2" />
@@ -66,12 +66,13 @@ export default function HomeLeaderboard() {
 
       <div className="flex divide-x mt-3" style={{ borderColor: 'var(--border)' }}>
         {top5.map((s) => (
-          <div key={s.studentId} className="flex-1 text-center px-1">
-            <p className="text-xs font-semibold truncate">{s.studentName}</p>
-            <p className="text-xs gold-text font-bold">{s.avgPct}%</p>
+          <div key={s.studentId} className="flex-1 min-w-0 text-center px-0.5 sm:px-1">
+            <p className="text-[10px] sm:text-xs font-semibold truncate" title={s.studentName}>{s.studentName}</p>
+            <p className="text-[10px] sm:text-xs gold-text font-bold whitespace-nowrap">{s.avgPct}%</p>
           </div>
         ))}
       </div>
     </div>
   );
 }
+
