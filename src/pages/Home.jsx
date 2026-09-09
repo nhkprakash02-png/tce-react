@@ -34,6 +34,8 @@ export default function Home() {
 
   return (
     <div>
+      <HomeLeaderboard />
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
         {QUICK_LINKS.map((c) => (
           <button key={c.tab} onClick={() => setTab(c.tab)} className="card glow-border rounded-2xl p-4 text-left">
@@ -74,8 +76,6 @@ export default function Home() {
       </div>
 
       <UrgentNotices />
-
-      <HomeLeaderboard />
 
       <div className="mb-4">
         <h3 className="font-display font-700 text-lg mb-3">Latest Notices</h3>
