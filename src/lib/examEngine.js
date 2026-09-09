@@ -147,6 +147,39 @@ export function buildSubmission(examState, DB, user) {
 // Excludes the 4 exempt mentor/admin accounts (see EXEMPT_ADMIN_EMAILS in utils.js) from the
 // public leaderboard shown to real students — those accounts are for content review, not
 // competing students, so they shouldn't appear ranked alongside them.
+// Homepage Top 5 leaderboard: ranks students by their AVERAGE PERCENTAGE across their
+// first-attempt paid-mock submissions within the given rolling window (so a student's high
+// score on a 100-mark test and a 50-mark test are compared fairly). Same core filters as the
+// admin Results dashboard (first attempt only, paid mocks only, exempt accounts excluded) —
+// deliberately kept consistent so "what counts as a real result" means the same thing
+// everywhere on the site.
+export function computeHomeLeaderboard(DB, period) {
+  const windowMs = (period === 'monthly' ? 30 : 7) * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - windowMs;
+
+  const qualifying = DB.submissions.filter((s) => {
+    if (s.testType !== 'mock') return false;
+    if (s.attempt !== 1) return false;
+    if (isExemptEmail(s.studentEmail)) return false;
+    if (new Date(s.date).getTime() < cutoff) return false;
+    const test = (DB.mockTests[s.subject] || []).find((t) => t.id === s.testId);
+    return !!test && !test.isDemo;
+  });
+
+  const byStudent = {};
+  qualifying.forEach((s) => {
+    const pct = s.maxScore > 0 ? (s.score / s.maxScore) * 100 : 0;
+    if (!byStudent[s.studentId]) byStudent[s.studentId] = { studentId: s.studentId, studentName: s.studentName, total: 0, count: 0 };
+    byStudent[s.studentId].total += pct;
+    byStudent[s.studentId].count += 1;
+  });
+
+  return Object.values(byStudent)
+    .map((e) => ({ studentId: e.studentId, studentName: e.studentName, avgPct: +(e.total / e.count).toFixed(1) }))
+    .sort((a, b) => b.avgPct - a.avgPct)
+    .slice(0, 5);
+}
+
 export function buildLeaderboard(submissions, testId) {
   return submissions.filter((s) => s.testId === testId && !isExemptEmail(s.studentEmail))
     .reduce((acc, s) => {
