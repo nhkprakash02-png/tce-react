@@ -18,9 +18,9 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
           <button onClick={() => goTab('home')} className="flex items-center gap-2 shrink-0 min-w-0">
             {logoError ? (
-              <div className="w-9 h-9 rounded-lg gold-grad flex items-center justify-center font-display font-800 text-ink text-lg shrink-0">T</div>
+              <div className="w-9 h-9 rounded-full gold-grad flex items-center justify-center font-display font-800 text-ink text-lg shrink-0">T</div>
             ) : (
-              <img src="/logo.png" alt="TCE logo" onError={() => setLogoError(true)} className="w-9 h-9 rounded-lg object-cover shrink-0" />
+              <img src="/logo.png" alt="TCE logo" onError={() => setLogoError(true)} className="w-9 h-9 rounded-full object-cover shrink-0" />
             )}
             <div className="min-w-0 text-left">
               <div className="font-display font-800 leading-tight text-xs sm:text-base truncate">TCE <span className="gold-text">The Competitive Edge</span></div>
