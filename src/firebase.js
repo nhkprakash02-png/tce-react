@@ -3,10 +3,13 @@
 // client Firebase config values aren't secret by design, but keeping them out of source
 // control is still good hygiene, especially since this project's Firestore rules should be
 // the real access boundary (see README "Security notes").
+//
+// NOTE: Firebase Storage is deliberately NOT initialized here — profile photos are stored as
+// compressed Base64 strings directly in Firestore instead (see src/lib/imageUtils.js), so this
+// project can stay fully on the free Spark plan without needing Storage enabled at all.
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyAelAmzeV33Ejc6i-aDKJg_GDgqJdswcI4',
@@ -19,15 +22,15 @@ export const firebaseConfig = {
 
 export const DEMO_MODE = false;
 
-let fbApp = null, fbAuth = null, fbDB = null, fbStorage = null;
+let fbApp = null, fbAuth = null, fbDB = null;
 try {
   fbApp = initializeApp(firebaseConfig);
   fbAuth = getAuth(fbApp);
   fbDB = getFirestore(fbApp);
-  fbStorage = getStorage(fbApp);
 } catch (e) {
   console.warn('Firebase init failed, using demo mode', e);
 }
 
-export { fbApp, fbAuth, fbDB, fbStorage };
+export { fbApp, fbAuth, fbDB };
 export const googleProvider = new GoogleAuthProvider();
+
