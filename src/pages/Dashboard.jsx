@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Lock, BarChart2, Camera } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { uploadProfilePhoto } from '../lib/storage';
+import { validateSourcePhoto } from '../lib/imageUtils';
 import Avatar from '../components/Avatar';
+import ImageCropperModal from '../components/ImageCropperModal';
 import ResultScreen from '../components/exam/ResultScreen';
 import ReviewScreen from '../components/exam/ReviewScreen';
 
@@ -46,7 +47,7 @@ export default function Dashboard() {
   const { DB, saveDB, user, openModal, setTab } = useApp();
   const [viewSub, setViewSub] = useState(null);
   const [reviewing, setReviewing] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cropFile, setCropFile] = useState(null); // File pending crop, or null
 
   if (!user) {
     return (
@@ -71,19 +72,18 @@ export default function Dashboard() {
   // launch logic that MockTest.jsx / PyqHub.jsx / Quiz.jsx each already own.
   const reattemptTabFor = (sub) => (sub.testType === 'pyq' ? 'pyq' : sub.testType === 'quiz' ? 'quiz' : 'mocks');
 
-  const handlePhotoChange = async (e) => {
+  const handlePhotoChange = (e) => {
     const file = e.target.files && e.target.files[0];
     e.target.value = ''; // allow re-selecting the same file later
     if (!file) return;
-    setUploadingPhoto(true);
-    try {
-      const url = await uploadProfilePhoto(file, user.id);
-      saveDB((prev) => ({ ...prev, students: prev.students.map((s) => (s.id === user.id ? { ...s, photoURL: url } : s)) }));
-    } catch (err) {
-      alert(err.message || 'Could not upload your photo. Please try again.');
-    } finally {
-      setUploadingPhoto(false);
-    }
+    const error = validateSourcePhoto(file);
+    if (error) { alert(error); return; }
+    setCropFile(file); // valid — open the cropper
+  };
+
+  const handleCropSave = (base64) => {
+    saveDB((prev) => ({ ...prev, students: prev.students.map((s) => (s.id === user.id ? { ...s, photoURL: base64 } : s)) }));
+    setCropFile(null);
   };
 
   return (
@@ -96,8 +96,8 @@ export default function Dashboard() {
               className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full gold-grad flex items-center justify-center cursor-pointer shadow-md"
               title="Change profile photo"
             >
-              {uploadingPhoto ? <span className="w-3 h-3 border-2 border-ink border-t-transparent rounded-full animate-spin" /> : <Camera className="w-3.5 h-3.5 text-ink" />}
-              <input type="file" accept="image/*" className="hidden" disabled={uploadingPhoto} onChange={handlePhotoChange} />
+              <Camera className="w-3.5 h-3.5 text-ink" />
+              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
             </label>
           </div>
           <p className="font-display font-700">{user.name}</p>
@@ -132,6 +132,8 @@ export default function Dashboard() {
       {viewSub && reviewing && (
         <ReviewScreen submission={viewSub} onBackToSummary={() => setReviewing(false)} onClose={() => { setReviewing(false); setViewSub(null); }} />
       )}
+
+      {cropFile && <ImageCropperModal file={cropFile} onCancel={() => setCropFile(null)} onSave={handleCropSave} />}
     </div>
   );
 }
