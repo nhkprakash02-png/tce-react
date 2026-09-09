@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { signInWithPopup, signInWithRedirect } from 'firebase/auth';
+import { signInWithRedirect } from 'firebase/auth';
 import Modal from './Modal';
 import { useApp } from '../context/AppContext';
-import { uid, isMobileDevice } from '../lib/utils';
+import { uid } from '../lib/utils';
 import { fbAuth, googleProvider, DEMO_MODE } from '../firebase';
 
 export function AccountModal() {
@@ -24,20 +24,12 @@ export function AccountModal() {
 }
 
 export default function AuthModal() {
-  const { user, DB, saveDB, setUser, closeModal, setTab, openModal } = useApp();
+  const { user, DB, saveDB, setUser, closeModal, setTab } = useApp();
   const [tab, setLocalTab] = useState('login');
   const [error, setError] = useState('');
   const [form, setForm] = useState({ email: '', password: '', name: '', phone: '', confirm: '' });
 
   if (user) return <AccountModal />;
-
-  const finalizeLogin = (profile) => {
-    const existing = DB.students.find((s) =>
-      (profile.email && (s.email || '').toLowerCase() === (profile.email || '').toLowerCase()) ||
-      (profile.phone && s.phone === profile.phone));
-    if (existing) { setUser(existing); closeModal(); setTab('dashboard'); return; }
-    openModal('googleRegister', { profile });
-  };
 
   const loginUser = () => {
     const email = (form.email || '').trim().toLowerCase();
@@ -59,19 +51,18 @@ export default function AuthModal() {
     setUser(student); closeModal(); setTab('dashboard');
   };
 
-  const googleSignIn = async () => {
+  // Always uses signInWithRedirect (never a popup): popups are unreliable across browsers
+  // (frequently blocked, and behave inconsistently in in-app browsers like Instagram/Facebook's
+  // built-in webview) and don't persist a session as reliably. The actual post-redirect login
+  // handling (matching an existing student, or opening the registration modal for a new one)
+  // lives in AppContext.jsx's getRedirectResult() effect, since the browser fully navigates
+  // away and back for this flow — there's no "after" callback to run here.
+  const googleSignIn = () => {
     if (DEMO_MODE || !fbAuth) return;
-    try {
-      if (isMobileDevice()) { await signInWithRedirect(fbAuth, googleProvider); return; }
-      const res = await signInWithPopup(fbAuth, googleProvider);
-      const u = res.user;
-      finalizeLogin({ name: u.displayName || 'Student', email: u.email, phone: u.phoneNumber || '' });
-    } catch (e) {
-      const popupIssue = ['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/operation-not-supported-in-this-environment'].includes(e.code);
-      if (popupIssue) { signInWithRedirect(fbAuth, googleProvider).catch((e2) => alert('Google sign-in failed: ' + e2.message)); return; }
+    signInWithRedirect(fbAuth, googleProvider).catch((e) => {
       if (e.code === 'auth/unauthorized-domain') { alert("Google sign-in failed: this website's domain is not yet added to the Authorized Domains list in Firebase Authentication settings. Please contact the site admin."); return; }
       alert('Google sign-in failed: ' + e.message);
-    }
+    });
   };
 
   const inputCls = 'w-full rounded-lg px-3 py-2.5 text-sm';
@@ -125,7 +116,7 @@ export function GoogleRegisterModal({ profile }) {
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     if (DB.students.some((s) => (s.email || '').toLowerCase() === email.toLowerCase())) { setError('An account with this email already exists. Please login instead.'); return; }
-    const student = { id: uid('st'), name, email, phone, password, address: '', joinDate: new Date().toISOString().slice(0, 10), registeredAt: new Date().toISOString(), paymentStatus: 'Not Enrolled', batch: '—', pendingReview: true };
+    const student = { id: uid('st'), name, email, phone, password, photoURL: profile.photoURL || '', address: '', joinDate: new Date().toISOString().slice(0, 10), registeredAt: new Date().toISOString(), paymentStatus: 'Not Enrolled', batch: '—', pendingReview: true };
     saveDB((prev) => ({ ...prev, students: [...prev.students, student] }));
     setUser(student); closeModal(); setTab('dashboard');
   };
