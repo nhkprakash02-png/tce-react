@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Lock, BarChart2 } from 'lucide-react';
+import { Lock, BarChart2, Camera } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { uploadProfilePhoto } from '../lib/storage';
+import Avatar from '../components/Avatar';
 import ResultScreen from '../components/exam/ResultScreen';
 import ReviewScreen from '../components/exam/ReviewScreen';
 
@@ -41,9 +43,10 @@ function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, onAnalyze }) {
 }
 
 export default function Dashboard() {
-  const { DB, user, openModal, setTab } = useApp();
+  const { DB, saveDB, user, openModal, setTab } = useApp();
   const [viewSub, setViewSub] = useState(null);
   const [reviewing, setReviewing] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   if (!user) {
     return (
@@ -68,15 +71,40 @@ export default function Dashboard() {
   // launch logic that MockTest.jsx / PyqHub.jsx / Quiz.jsx each already own.
   const reattemptTabFor = (sub) => (sub.testType === 'pyq' ? 'pyq' : sub.testType === 'quiz' ? 'quiz' : 'mocks');
 
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const url = await uploadProfilePhoto(file, user.id);
+      saveDB((prev) => ({ ...prev, students: prev.students.map((s) => (s.id === user.id ? { ...s, photoURL: url } : s)) }));
+    } catch (err) {
+      alert(err.message || 'Could not upload your photo. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   return (
     <div>
       <div className="grid sm:grid-cols-4 gap-4 mb-8">
         <div className="card glow-border rounded-2xl p-5 sm:col-span-1">
-          <div className="w-14 h-14 rounded-full gold-grad flex items-center justify-center font-display font-800 text-ink text-xl mb-3">{user.name[0]}</div>
+          <div className="relative w-14 h-14 mb-3">
+            <Avatar name={user.name} photoURL={rec.photoURL} sizeClass="w-14 h-14" textSizeClass="text-xl" />
+            <label
+              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full gold-grad flex items-center justify-center cursor-pointer shadow-md"
+              title="Change profile photo"
+            >
+              {uploadingPhoto ? <span className="w-3 h-3 border-2 border-ink border-t-transparent rounded-full animate-spin" /> : <Camera className="w-3.5 h-3.5 text-ink" />}
+              <input type="file" accept="image/*" className="hidden" disabled={uploadingPhoto} onChange={handlePhotoChange} />
+            </label>
+          </div>
           <p className="font-display font-700">{user.name}</p>
           <p className="text-xs muted">{rec.phone || rec.email || ''}</p>
           <span className={`badge mt-3 inline-block ${statusColor}`}>{rec.paymentStatus}</span>
           <p className="text-xs muted mt-2">Batch: <span className="text-current font-semibold">{rec.batch || '—'}</span></p>
+          <p className="text-[10px] muted mt-2">Photo must be under 1MB.</p>
         </div>
         <div className="card glow-border rounded-2xl p-5 text-center flex flex-col justify-center">
           <p className="text-[10px] muted uppercase">Mock Attempts</p><p className="font-display font-800 text-2xl gold-text">{mockSubs.length}</p>
