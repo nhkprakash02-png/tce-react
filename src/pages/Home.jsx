@@ -3,6 +3,7 @@ import { FileCheck2, Zap, Archive, BookOpen, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { priceLabel, batchFeaturesList } from '../lib/utils';
 import UrgentNotices from '../components/UrgentNotices';
+import HomeLeaderboard from '../components/HomeLeaderboard';
 
 const QUICK_LINKS = [
   { icon: FileCheck2, label: 'Mock Tests', val: 'Paid / Enrolled', tab: 'mocks' },
@@ -73,6 +74,8 @@ export default function Home() {
       </div>
 
       <UrgentNotices />
+
+      <HomeLeaderboard />
 
       <div className="mb-4">
         <h3 className="font-display font-700 text-lg mb-3">Latest Notices</h3>
