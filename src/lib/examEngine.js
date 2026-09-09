@@ -153,15 +153,37 @@ export function buildSubmission(examState, DB, user) {
 // admin Results dashboard (first attempt only, paid mocks only, exempt accounts excluded) —
 // deliberately kept consistent so "what counts as a real result" means the same thing
 // everywhere on the site.
+// Internal only — computes the Friday 00:00:00 -> Monday 00:00:00 (i.e. through Sunday
+// 11:59:59.999 PM) window that's currently either in progress or was most recently completed,
+// relative to `now`. This is intentionally an internal calculation detail: the weekly
+// leaderboard should always reflect "the most relevant Fri-Sun weekend," but the site never
+// displays this window to visitors — see computeHomeLeaderboard below.
+function getWeekendWindow(now = new Date()) {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const day = start.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  const daysSinceFriday = (day + 2) % 7; // Fri=0, Sat=1, Sun=2, Mon=3, ... Thu=6
+  start.setDate(start.getDate() - daysSinceFriday);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 3); // following Monday 00:00:00 — exclusive upper bound
+  return { start, end };
+}
+
 export function computeHomeLeaderboard(DB, period) {
-  const windowMs = (period === 'monthly' ? 30 : 7) * 24 * 60 * 60 * 1000;
-  const cutoff = Date.now() - windowMs;
+  let inWindow;
+  if (period === 'monthly') {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    inWindow = (s) => new Date(s.date).getTime() >= cutoff;
+  } else {
+    const { start, end } = getWeekendWindow();
+    inWindow = (s) => { const t = new Date(s.date).getTime(); return t >= start.getTime() && t < end.getTime(); };
+  }
 
   const qualifying = DB.submissions.filter((s) => {
     if (s.testType !== 'mock') return false;
     if (s.attempt !== 1) return false;
     if (isExemptEmail(s.studentEmail)) return false;
-    if (new Date(s.date).getTime() < cutoff) return false;
+    if (!inWindow(s)) return false;
     const test = (DB.mockTests[s.subject] || []).find((t) => t.id === s.testId);
     return !!test && !test.isDemo;
   });
