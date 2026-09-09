@@ -68,28 +68,6 @@ export function AppProvider({ children }) {
     else localStorage.removeItem(CUR_KEY);
   }, []);
 
-  // Completes a Google sign-in that fell back to signInWithRedirect() on mobile (see
-  // googleSignIn() in AuthModal.jsx) — without this, a user redirected back to the page after
-  // redirect-based sign-in would never actually get logged in. Ported from index.html lines
-  // ~260-265. Runs once DB has finished loading so the "does a matching student exist" check
-  // below has real data to check against.
-  useEffect(() => {
-    if (dbLoading || !fbAuth) return;
-    let cancelled = false;
-    getRedirectResult(fbAuth).then((res) => {
-      if (cancelled || !res || !res.user) return;
-      const u = res.user;
-      const profile = { name: u.displayName || 'Student', email: u.email, phone: u.phoneNumber || '' };
-      const existing = DB.students.find((s) =>
-        (profile.email && (s.email || '').toLowerCase() === (profile.email || '').toLowerCase()) ||
-        (profile.phone && s.phone === profile.phone));
-      if (existing) { setUser(existing); setActiveTabState('dashboard'); }
-      else setModalState({ type: 'googleRegister', props: { profile } });
-    }).catch((e) => console.warn('Google redirect sign-in failed', e));
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dbLoading]);
-
   const setAdmin = useCallback((v) => {
     setAdminState(v);
     if (v) localStorage.setItem(ADM_KEY, '1');
@@ -135,6 +113,39 @@ export function AppProvider({ children }) {
     const rec = DB.students.find((s) => s.id === user.id);
     return !!(rec && rec.paymentStatus === 'Approved');
   }, [user, DB.students]);
+
+  // Completes the Google sign-in redirect flow (signInWithRedirect() in AuthModal.jsx — see
+  // that file for why redirect is used instead of a popup). Runs once DB has finished loading
+  // so the "does a matching student exist" check below has real data to check against.
+  useEffect(() => {
+    if (dbLoading || !fbAuth) return;
+    let cancelled = false;
+    getRedirectResult(fbAuth).then((res) => {
+      if (cancelled || !res || !res.user) return;
+      const u = res.user;
+      const profile = { name: u.displayName || 'Student', email: u.email, phone: u.phoneNumber || '', photoURL: u.photoURL || '' };
+      const existing = DB.students.find((s) =>
+        (profile.email && (s.email || '').toLowerCase() === (profile.email || '').toLowerCase()) ||
+        (profile.phone && s.phone === profile.phone));
+      if (existing) {
+        // Auto-fill the Google profile photo as their avatar — but only if they don't already
+        // have one (a previously-uploaded cropped photo, or a Google photo from a past login),
+        // so this never overwrites a custom avatar they've since chosen.
+        if (profile.photoURL && !existing.photoURL) {
+          const updated = { ...existing, photoURL: profile.photoURL };
+          saveDB((prev) => ({ ...prev, students: prev.students.map((s) => (s.id === existing.id ? updated : s)) }));
+          setUser(updated);
+        } else {
+          setUser(existing);
+        }
+        setActiveTabState('dashboard');
+      } else {
+        setModalState({ type: 'googleRegister', props: { profile } });
+      }
+    }).catch((e) => console.warn('Google redirect sign-in failed', e));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbLoading]);
 
   // True for the 4 exempt mentor/admin accounts — full content access bypass everywhere a mock
   // test or material would otherwise check the site-admin flag. Kept separate from `admin`
