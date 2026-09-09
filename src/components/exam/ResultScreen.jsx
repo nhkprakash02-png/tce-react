@@ -3,6 +3,7 @@ import { ArrowLeft, Trophy, TrendingUp, TrendingDown, AlertTriangle, CheckCircle
 import { useApp } from '../../context/AppContext';
 import { sectionDisplayName, buildLeaderboard, downloadScorecard, shareScorecardWhatsApp } from '../../lib/examEngine';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
+import Avatar from '../Avatar';
 
 function fmtTime(secs) { const m = Math.floor((secs || 0) / 60), s = (secs || 0) % 60; return `${m}:${String(s).padStart(2, '0')}`; }
 
@@ -92,7 +93,7 @@ export default function ResultScreen({ submission: sub, autoTimeout, autoViolati
             {leaderboard.slice(0, 10).map((s, i) => (
               <div key={s.id} className={`flex items-center gap-3 ${s.id === sub.id ? 'card2 rounded-lg px-2 py-1.5' : 'px-2 py-1.5'}`}>
                 <span className={`w-6 text-xs font-bold ${i < 3 ? 'gold-text' : 'muted'}`}>{i + 1}.</span>
-                <div className="w-8 h-8 rounded-full gold-grad flex items-center justify-center text-ink text-xs font-bold shrink-0">{(s.studentName || '?')[0]}</div>
+                <Avatar name={s.studentName} photoURL={(DB.students.find((st) => st.id === s.studentId) || {}).photoURL} sizeClass="w-8 h-8" textSizeClass="text-xs" />
                 <span className={`text-xs flex-1 ${s.id === sub.id ? 'font-bold' : ''}`}>{s.studentName}{s.id === sub.id ? ' (You)' : ''}</span>
                 <span className="text-xs gold-text font-semibold">{s.score}/{sub.maxScore}</span>
               </div>
