@@ -1,7 +1,7 @@
 // Central app state. Replaces the original's global `let DB`, `let activeTab`, `getCurrentUser()`,
 // `isAdmin()`, theme localStorage globals (index.html lines ~691-792) with React context.
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { getRedirectResult } from 'firebase/auth';
+import { getRedirectResult, onAuthStateChanged } from 'firebase/auth';
 import { loadDB, saveDB as persistDB, attachDbRealtimeListeners, loadBanners } from '../lib/db';
 import { seedDB, normalizeDB } from '../lib/seedData';
 import { fbAuth } from '../firebase';
@@ -54,6 +54,8 @@ export function AppProvider({ children }) {
   useEffect(() => { dbRef.current = DB; }, [DB]);
   const examInProgressRef = useRef(examInProgress);
   useEffect(() => { examInProgressRef.current = examInProgress; }, [examInProgress]);
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   useEffect(() => {
     const unsub = attachDbRealtimeListeners(() => dbRef.current, (key, incoming) => {
@@ -136,18 +138,35 @@ export function AppProvider({ children }) {
     return !!(rec && rec.paymentStatus === 'Approved');
   }, [user, DB.students]);
 
-  // Completes the Google sign-in redirect flow (signInWithRedirect() in AuthModal.jsx — see
-  // that file for why redirect is used instead of a popup). Runs once DB has finished loading
-  // so the "does a matching student exist" check below has real data to check against.
+  // Completes Google sign-in (signInWithRedirect() in AuthModal.jsx — see that file for why
+  // redirect is used instead of a popup).
+  //
+  // This is split into two parts on purpose:
+  //  1. getRedirectResult() is called once, immediately, purely to surface any sign-in ERROR
+  //     right away (e.g. account-exists-with-different-credential). It is NOT relied on to
+  //     detect a successful sign-in — that API is a one-shot call that Firebase's own docs
+  //     note can silently return nothing if it's called even slightly late, and gating it
+  //     behind `dbLoading` (as the previous version did) was exactly that kind of delay: sign-in
+  //     would fully succeed with Google, but the app would never notice.
+  //  2. onAuthStateChanged() is the actual source of truth. Firebase guarantees this fires once
+  //     its internal auth state has finished restoring — including right after a redirect
+  //     completes — so this is what reliably drives "log this person into the app." As a bonus,
+  //     it also means a student who signed in with Google before gets recognized automatically
+  //     on future visits, not just immediately after a fresh redirect.
   useEffect(() => {
-    if (dbLoading || !fbAuth) return;
-    let cancelled = false;
-    getRedirectResult(fbAuth).then((res) => {
-      if (cancelled || !res || !res.user) return;
-      const u = res.user;
-      const profile = { name: u.displayName || 'Student', email: u.email, phone: u.phoneNumber || '', photoURL: u.photoURL || '' };
-      const existing = DB.students.find((s) =>
-        (profile.email && (s.email || '').toLowerCase() === (profile.email || '').toLowerCase()) ||
+    if (!fbAuth) return;
+    getRedirectResult(fbAuth).catch((e) => console.warn('Google redirect sign-in error', e));
+  }, []);
+
+  useEffect(() => {
+    if (!fbAuth || dbLoading) return;
+    const unsub = onAuthStateChanged(fbAuth, (firebaseUser) => {
+      if (!firebaseUser || !firebaseUser.email) return;
+      const currentUser = userRef.current;
+      if (currentUser && (currentUser.email || '').toLowerCase() === firebaseUser.email.toLowerCase()) return; // already logged in as this account
+      const profile = { name: firebaseUser.displayName || 'Student', email: firebaseUser.email, phone: firebaseUser.phoneNumber || '', photoURL: firebaseUser.photoURL || '' };
+      const existing = dbRef.current.students.find((s) =>
+        (s.email || '').toLowerCase() === profile.email.toLowerCase() ||
         (profile.phone && s.phone === profile.phone));
       if (existing) {
         // Auto-fill the Google profile photo as their avatar — but only if they don't already
@@ -164,10 +183,9 @@ export function AppProvider({ children }) {
       } else {
         setModalState({ type: 'googleRegister', props: { profile } });
       }
-    }).catch((e) => console.warn('Google redirect sign-in failed', e));
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dbLoading]);
+    });
+    return unsub;
+  }, [dbLoading, saveDB, setUser]);
 
   // True for the 4 exempt mentor/admin accounts — full content access bypass everywhere a mock
   // test or material would otherwise check the site-admin flag. Kept separate from `admin`
