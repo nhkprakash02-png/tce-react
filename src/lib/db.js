@@ -143,13 +143,25 @@ export async function saveDB(DB) {
 
 // Live sync: fires `onChange(key, incomingValue)` whenever another admin/device changes a key.
 // Returns an unsubscribe function — call it in a useEffect cleanup.
-export function attachDbRealtimeListeners(DB, onChange) {
+//
+// IMPORTANT: `getDB` is a FUNCTION that returns the latest DB state (e.g. `() => dbRef.current`
+// in AppContext), not the DB object itself. This is what actually fixes the quota-exhaustion
+// bug: subscribing once and reading fresh data via a getter each time a snapshot fires. The
+// earlier version took the DB object directly and was called from a useEffect that depended on
+// DB — so every single change caused React to tear down and recreate all 14 listeners, and
+// since Firestore fires an onSnapshot listener immediately on attach, that resubscription itself
+// looked like "new data," which triggered another state update, which triggered another
+// resubscription — a runaway loop that could burn through the entire daily read quota in
+// minutes. Subscribing exactly once (see the empty dependency array at the call site) and using
+// a getter for comparisons instead closes that loop for good.
+export function attachDbRealtimeListeners(getDB, onChange) {
   if (DEMO_MODE || !fbDB) return () => {};
   const unsubs = DB_KEYS.map((key) => onSnapshot(doc(fbDB, FS_COLLECTION, key), async (snap) => {
     if (!snap.exists()) return;
     try {
-      const incoming = await readKeyValue(key, DB[key]);
-      const changed = JSON.stringify(DB[key]) !== JSON.stringify(incoming);
+      const currentValue = getDB()[key];
+      const incoming = await readKeyValue(key, currentValue);
+      const changed = JSON.stringify(currentValue) !== JSON.stringify(incoming);
       if (changed) onChange(key, incoming);
     } catch (e) { console.warn('Live sync reassembly failed for ' + key, e); }
   }, (err) => console.warn('Live sync listener error for ' + key + ':', err)));
