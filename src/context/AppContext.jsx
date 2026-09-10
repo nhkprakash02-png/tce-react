@@ -1,6 +1,6 @@
 // Central app state. Replaces the original's global `let DB`, `let activeTab`, `getCurrentUser()`,
 // `isAdmin()`, theme localStorage globals (index.html lines ~691-792) with React context.
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { getRedirectResult } from 'firebase/auth';
 import { loadDB, saveDB as persistDB, attachDbRealtimeListeners, loadBanners } from '../lib/db';
 import { seedDB, normalizeDB } from '../lib/seedData';
@@ -46,14 +46,22 @@ export function AppProvider({ children }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Refs so the realtime-listener effect below can always read the LATEST DB/examInProgress
+  // value without needing them in its dependency array — see the fix note in db.js for why
+  // depending on DB directly caused a runaway resubscription loop that exhausted the daily
+  // Firestore read quota. This effect now subscribes its 14 listeners exactly ONCE per session.
+  const dbRef = useRef(DB);
+  useEffect(() => { dbRef.current = DB; }, [DB]);
+  const examInProgressRef = useRef(examInProgress);
+  useEffect(() => { examInProgressRef.current = examInProgress; }, [examInProgress]);
+
   useEffect(() => {
-    const unsub = attachDbRealtimeListeners(DB, (key, incoming) => {
-      if (examInProgress) return; // never disrupt a test/quiz in progress
+    const unsub = attachDbRealtimeListeners(() => dbRef.current, (key, incoming) => {
+      if (examInProgressRef.current) return; // never disrupt a test/quiz in progress
       setDB((prev) => ({ ...prev, [key]: incoming }));
     });
     return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [DB, examInProgress]);
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light');
