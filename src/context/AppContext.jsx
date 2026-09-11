@@ -3,10 +3,10 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { getRedirectResult, onAuthStateChanged } from 'firebase/auth';
 import { loadDB, saveDB as persistDB, attachDbRealtimeListeners, loadBanners } from '../lib/db';
-import { seedDB, normalizeDB } from '../lib/seedData';
+import { emptyDB } from '../lib/seedData';
 import { fbAuth } from '../firebase';
 import { isExemptEmail } from '../lib/utils';
-import { PATH_FOR_TAB, tabForPath } from '../lib/routes';
+import { PATH_FOR_TAB, tabForPath, parseTestDeepLink } from '../lib/routes';
 
 const CUR_KEY = 'currentUser';
 const ADM_KEY = 'tce_admin_session_v1';
@@ -15,7 +15,7 @@ const THEME_KEY = 'tce_theme';
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [DB, setDB] = useState(() => normalizeDB(seedDB())); // placeholder until Firestore loads
+  const [DB, setDB] = useState(emptyDB); // empty placeholder until Firestore loads — see emptyDB() in seedData.js
   const [dbLoading, setDbLoading] = useState(true);
   const [banners, setBanners] = useState([]);
   const [user, setUserState] = useState(() => {
@@ -24,6 +24,12 @@ export function AppProvider({ children }) {
   const [admin, setAdminState] = useState(() => localStorage.getItem(ADM_KEY) === '1');
   const [theme, setThemeState] = useState(() => localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark');
   const [activeTab, setActiveTabState] = useState(() => tabForPath(window.location.pathname));
+  // If the page was opened via a /test/:id deep link (see routes.js), this holds that testId
+  // once, so MockTest.jsx can auto-select/launch it on first load. It's a one-shot value —
+  // consumeDeepLinkTestId() below clears it after MockTest.jsx reads it, so navigating around
+  // the app normally afterward never keeps re-triggering the same auto-launch.
+  const [deepLinkTestId, setDeepLinkTestId] = useState(() => parseTestDeepLink(window.location.pathname));
+  const consumeDeepLinkTestId = useCallback(() => setDeepLinkTestId(null), []);
   const [tabStack, setTabStack] = useState([]); // history of previously-visited tabs, for goBack()
   const [examInProgress, setExamInProgress] = useState(false); // mirrors original's `examState` guard
   // Replaces original's openModal(html)/closeModal() + #modalRoot innerHTML swap (lines ~951-980).
@@ -84,6 +90,21 @@ export function AppProvider({ children }) {
     if (v) localStorage.setItem(ADM_KEY, '1');
     else localStorage.removeItem(ADM_KEY);
   }, []);
+
+  // Full session teardown for the student-facing "Logout" button. Previously this only cleared
+  // the student's own `user` state — but if that same browser had EVER separately logged into
+  // the Admin Panel in this session, the admin flag stays true independently (it has its own
+  // logout button inside the Admin Panel), so a brand-new account created right after would
+  // silently inherit full/unlocked access via `hasFullAccess = admin || isExemptUser`. This is
+  // what actually caused "a fresh new account inherits the previous account's unlocked state" —
+  // logout now clears both, guaranteeing a truly clean slate for whoever signs in next on this
+  // browser. Also clears any exam-resume progress so a new account never sees a stale
+  // "Resume Previous Attempt" prompt belonging to someone else.
+  const logout = useCallback(() => {
+    if (user) { try { localStorage.removeItem('tce_exam_resume_' + user.id); } catch (e) { /* ignore */ } }
+    setUser(null);
+    setAdmin(false);
+  }, [user, setUser, setAdmin]);
 
   // setTab records where you came FROM onto a small history stack, so goBack() can retrace
   // your steps within the app (Home, Mock Tests, Dashboard, etc.) — this is what powers the
@@ -201,9 +222,10 @@ export function AppProvider({ children }) {
     theme, toggleTheme,
     activeTab, setTab, goBack, canGoBack: tabStack.length > 0,
     examInProgress, setExamInProgress,
-    isEnrolled, isExemptUser, hasFullAccess,
+    isEnrolled, isExemptUser, hasFullAccess, logout,
+    deepLinkTestId, consumeDeepLinkTestId,
     modal, openModal, closeModal,
-  }), [DB, saveDB, dbLoading, banners, user, setUser, admin, setAdmin, theme, toggleTheme, activeTab, setTab, goBack, tabStack, examInProgress, isEnrolled, isExemptUser, hasFullAccess, modal, openModal, closeModal]);
+  }), [DB, saveDB, dbLoading, banners, user, setUser, admin, setAdmin, theme, toggleTheme, activeTab, setTab, goBack, tabStack, examInProgress, isEnrolled, isExemptUser, hasFullAccess, logout, deepLinkTestId, consumeDeepLinkTestId, modal, openModal, closeModal]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
