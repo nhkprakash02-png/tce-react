@@ -165,3 +165,19 @@ export function normalizeDB(db) {
   (db.mentors || []).forEach((m) => { if (!m.photo && mentorPhotoByName[m.name]) m.photo = mentorPhotoByName[m.name]; });
   return db;
 }
+
+// Structurally-valid but EMPTY database, used as the app's placeholder state before the real
+// Firestore load finishes — replaces using seedDB() as that placeholder, which is what caused
+// the "dummy Math Mock Test 1/2/3 flashes for a second on refresh" bug: the seed data used to
+// render immediately on first paint since it WAS the initial state, before real data arrived
+// and replaced it. An empty shape here means there's simply no dummy content to flash; pages
+// should check `dbLoading` (see AppContext) to show a skeleton/spinner instead during this gap.
+export function emptyDB() {
+  return {
+    examCategories: [], banners: [], ticker: '', students: [],
+    mockTests: { math: [], english: [], reasoning: [], gk: [], science: [], full: [] },
+    quizPool: [], pyqSets: [], submissions: [],
+    materials: { math: [], english: [], reasoning: [], gk: [], science: [], currentAffairs: [] },
+    notices: [], inquiries: [], batches: [], mentors: [], quizDurations: {}, urgentNotices: [],
+  };
+}
