@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Languages, Maximize, Menu, X } from 'lucide-react';
 import { useExam } from '../../hooks/useExam';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
@@ -74,6 +74,23 @@ export default function ExamRunner({ initialExam, user, onFinish }) {
   const notAnswered = st.status.filter((s) => s === 'not-answered').length;
   const marked = st.status.filter((s) => s === 'marked' || s === 'answered-marked').length;
   const notVisited = st.status.filter((s) => s === 'not-visited').length;
+
+  // Guards against the device/browser Back button silently yanking the exam screen away
+  // mid-test (previously: pressing Back changed the app's tab state, which unmounted this
+  // whole component with no warning and no chance to save/confirm). The standard SPA technique
+  // for this: push one extra "guard" history entry the moment the exam starts. The first Back
+  // press then just pops that guard entry (firing popstate here) instead of actually navigating
+  // away — we immediately push another guard entry to neutralize it, and show the exact same
+  // submit-confirmation popup used everywhere else, instead of a separate dialog.
+  useEffect(() => {
+    window.history.pushState({ examGuard: true }, '');
+    const onPopState = () => {
+      window.history.pushState({ examGuard: true }, '');
+      setConfirmSubmit(true);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--bg)' }}>
