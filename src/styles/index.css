@@ -21,6 +21,13 @@ html.light {
 * { scrollbar-width: thin; scrollbar-color: #D97706 transparent; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #F59E0B, #D97706); border-radius: 8px; }
+/* Fixes the mobile/PWA "zoomed-out with blank space" bug: if ANY element on the page ever
+   overflows the viewport horizontally (a long unbroken word, an oversized absolutely-positioned
+   element, etc.), mobile browsers and installed-PWA shells respond by zooming the whole page out
+   to fit that width — leaving the blank margins reported. Constraining html/body/#root width and
+   clipping horizontal overflow here means a stray overflow can no longer drag the whole page's
+   zoom level down with it. */
+html, body, #root { max-width: 100vw; overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--text);
