@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp } from '../../context/AppContext';
-import { isExemptEmail } from '../../lib/utils';
+import { isExemptSubmission, firstAttemptSubmissions } from '../../lib/examEngine';
 
 const SUBJECTS = [['all', 'All Subjects'], ['math', 'Mathematics'], ['english', 'English'], ['reasoning', 'Reasoning'], ['gk', 'General Knowledge (GK)'], ['science', 'Science'], ['full', 'Full Combined Mock']];
 
@@ -15,21 +15,23 @@ export default function ResultsManager() {
 
   const ranked = useMemo(() => {
     // Admin results view is restricted to: paid mock tests only (excludes free-demo mocks,
-    // Quick Quiz, and PYQ Hub entirely), first attempt only per student, and excludes the
-    // exempt mentor/admin accounts (see EXEMPT_ADMIN_EMAILS) whose attempts aren't real student
-    // results. This does NOT affect what students see on their own Dashboard — that still shows
-    // every attempt, for every test type, unfiltered.
-    let subs = DB.submissions.filter((s) => {
+    // Quick Quiz, and PYQ Hub entirely), each student's genuine first attempt only (computed
+    // dynamically from actual dates, not trusted from the stored `.attempt` field — see
+    // firstAttemptSubmissions in examEngine.js), and excludes the exempt mentor/admin accounts
+    // via a robust check that also catches historical submissions missing a studentEmail field
+    // (see isExemptSubmission). This does NOT affect what students see on their own Dashboard —
+    // that still shows every attempt, for every test type, unfiltered.
+    const paidMockSubs = DB.submissions.filter((s) => {
       if (s.testType !== 'mock') return false;
-      if (s.attempt !== 1) return false;
-      if (isExemptEmail(s.studentEmail)) return false;
+      if (isExemptSubmission(s, DB.students)) return false;
       const test = (DB.mockTests[s.subject] || []).find((t) => t.id === s.testId);
       return !!test && !test.isDemo; // paid/premium mocks only — must still exist and not be the free demo
     });
+    let subs = firstAttemptSubmissions(paidMockSubs);
     if (subjectFilter !== 'all') subs = subs.filter((s) => s.subject === subjectFilter);
     if (testFilter !== 'all') subs = subs.filter((s) => s.testId === testFilter);
     return subs.slice().sort((a, b) => b.score - a.score || a.timeTakenSec - b.timeTakenSec);
-  }, [DB.submissions, DB.mockTests, subjectFilter, testFilter]);
+  }, [DB.submissions, DB.mockTests, DB.students, subjectFilter, testFilter]);
 
   const exportResultsExcel = () => {
     const rows = ranked.map((s, i) => ({ Rank: i + 1, Student: s.studentName, Phone: s.studentPhone, Test: s.testTitle, Attempt: s.attempt, Score: s.score, MaxScore: s.maxScore, Accuracy: s.accuracy, TimeTakenSec: s.timeTakenSec, Date: new Date(s.date).toLocaleString() }));
