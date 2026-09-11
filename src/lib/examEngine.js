@@ -144,21 +144,68 @@ export function buildSubmission(examState, DB, user) {
   };
 }
 
-// Excludes the 4 exempt mentor/admin accounts (see EXEMPT_ADMIN_EMAILS in utils.js) from the
-// public leaderboard shown to real students — those accounts are for content review, not
-// competing students, so they shouldn't appear ranked alongside them.
-// Homepage Top 5 leaderboard: ranks students by their AVERAGE PERCENTAGE across their
-// first-attempt paid-mock submissions within the given rolling window (so a student's high
-// score on a 100-mark test and a 50-mark test are compared fairly). Same core filters as the
-// admin Results dashboard (first attempt only, paid mocks only, exempt accounts excluded) —
-// deliberately kept consistent so "what counts as a real result" means the same thing
-// everywhere on the site.
+// Robust exemption check for a submission: checks BOTH the email stored directly on the
+// submission (set at the time it was created) AND a fresh lookup of that student's CURRENT
+// profile email. The second check matters because any submission recorded before the
+// `studentEmail` field existed on submissions (or any other historical inconsistency) would
+// have no way to be caught by checking the stored field alone — this closes that gap, which is
+// what let an exempt account's older/unlabeled submission leak onto the leaderboard.
+export function isExemptSubmission(sub, students) {
+  if (isExemptEmail(sub.studentEmail)) return true;
+  const rec = (students || []).find((s) => s.id === sub.studentId);
+  return !!(rec && isExemptEmail(rec.email));
+}
+
+// Returns only the chronologically EARLIEST submission per (student, test) pair — i.e. each
+// student's real first attempt — computed fresh from the actual dates rather than trusting the
+// `.attempt` number stored on each submission. This is deliberately more robust than filtering
+// on `attempt === 1`: if that stored number was ever wrong for any reason (a data import, a
+// race condition, anything), this still gets the right answer, since it only looks at what
+// chronologically happened first.
+export function firstAttemptSubmissions(submissions) {
+  const earliestByKey = {};
+  submissions.forEach((s) => {
+    const key = s.studentId + '::' + s.testId;
+    const cur = earliestByKey[key];
+    if (!cur || new Date(s.date).getTime() < new Date(cur.date).getTime()) earliestByKey[key] = s;
+  });
+  const firstIds = new Set(Object.values(earliestByKey).map((s) => s.id));
+  return submissions.filter((s) => firstIds.has(s.id));
+}
+
+// Shared base filter for anything that should only ever consider "real" leaderboard-eligible
+// attempts: paid mock tests only (no quiz, no PYQ, no free-demo mocks), the 4 exempt accounts
+// fully excluded, and only each student's genuine first attempt per test.
+function eligiblePaidMockFirstAttempts(DB) {
+  const paidMockSubs = DB.submissions.filter((s) => {
+    if (s.testType !== 'mock') return false;
+    if (isExemptSubmission(s, DB.students)) return false;
+    const test = (DB.mockTests[s.subject] || []).find((t) => t.id === s.testId);
+    return !!test && !test.isDemo;
+  });
+  return firstAttemptSubmissions(paidMockSubs);
+}
+
+function averageByStudent(subs) {
+  const byStudent = {};
+  subs.forEach((s) => {
+    const pct = s.maxScore > 0 ? (s.score / s.maxScore) * 100 : 0;
+    if (!byStudent[s.studentId]) byStudent[s.studentId] = { studentId: s.studentId, studentName: s.studentName, total: 0, count: 0 };
+    byStudent[s.studentId].total += pct;
+    byStudent[s.studentId].count += 1;
+  });
+  return Object.values(byStudent)
+    .map((e) => ({ studentId: e.studentId, studentName: e.studentName, avgPct: +(e.total / e.count).toFixed(1) }))
+    .sort((a, b) => b.avgPct - a.avgPct)
+    .slice(0, 5);
+}
+
 // Internal only — computes the Friday 00:00:00 -> Monday 00:00:00 (i.e. through Sunday
 // 11:59:59.999 PM) window that's currently either in progress or was most recently completed,
 // relative to `now`. This is intentionally an internal calculation detail: the weekly
 // leaderboard should always reflect "the most relevant Fri-Sun weekend," but the site never
 // displays this window to visitors — see computeHomeLeaderboard below.
-function getWeekendWindow(now = new Date()) {
+function getWeekendWindow(now) {
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
   const day = start.getDay(); // 0=Sun,1=Mon,...,6=Sat
@@ -169,41 +216,54 @@ function getWeekendWindow(now = new Date()) {
   return { start, end };
 }
 
+// Homepage Top 5 leaderboard. Both periods are restricted to paid mock tests, first-attempt
+// only, exempt accounts fully excluded (see eligiblePaidMockFirstAttempts above). Ranked by
+// AVERAGE PERCENTAGE so tests with different total marks compare fairly.
+//
+// - Weekly: strictly the Friday 00:00 -> Sunday 11:59:59 PM window. If that window (or the
+//   current one, if it's still in progress) has zero qualifying attempts, this walks backward
+//   one week at a time until it finds a week that does, and shows THAT week's results — so the
+//   board never resets to blank or changes just because a stray attempt landed outside the
+//   active window ("Inter-Week Result Persistence").
+// - Monthly: every first-attempt paid-mock submission dated within the current calendar month
+//   AND dated on a Friday/Saturday/Sunday (i.e. taken during one of that month's weekend
+//   windows) — matching "average of first attempts... within the Friday-Sunday timeline of the
+//   mock tests conducted that month." Same backward-walk persistence if the current month has
+//   no qualifying attempts yet.
 export function computeHomeLeaderboard(DB, period) {
-  let inWindow;
+  const eligible = eligiblePaidMockFirstAttempts(DB);
+
   if (period === 'monthly') {
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    inWindow = (s) => new Date(s.date).getTime() >= cutoff;
-  } else {
-    const { start, end } = getWeekendWindow();
-    inWindow = (s) => { const t = new Date(s.date).getTime(); return t >= start.getTime() && t < end.getTime(); };
+    const cursor = new Date();
+    for (let i = 0; i < 24; i++) {
+      const y = cursor.getFullYear(), m = cursor.getMonth();
+      const subsThisMonth = eligible.filter((s) => {
+        const d = new Date(s.date);
+        if (d.getFullYear() !== y || d.getMonth() !== m) return false;
+        return [5, 6, 0].includes(d.getDay()); // Fri, Sat, Sun only
+      });
+      if (subsThisMonth.length) return averageByStudent(subsThisMonth);
+      cursor.setMonth(cursor.getMonth() - 1);
+    }
+    return [];
   }
 
-  const qualifying = DB.submissions.filter((s) => {
-    if (s.testType !== 'mock') return false;
-    if (s.attempt !== 1) return false;
-    if (isExemptEmail(s.studentEmail)) return false;
-    if (!inWindow(s)) return false;
-    const test = (DB.mockTests[s.subject] || []).find((t) => t.id === s.testId);
-    return !!test && !test.isDemo;
-  });
-
-  const byStudent = {};
-  qualifying.forEach((s) => {
-    const pct = s.maxScore > 0 ? (s.score / s.maxScore) * 100 : 0;
-    if (!byStudent[s.studentId]) byStudent[s.studentId] = { studentId: s.studentId, studentName: s.studentName, total: 0, count: 0 };
-    byStudent[s.studentId].total += pct;
-    byStudent[s.studentId].count += 1;
-  });
-
-  return Object.values(byStudent)
-    .map((e) => ({ studentId: e.studentId, studentName: e.studentName, avgPct: +(e.total / e.count).toFixed(1) }))
-    .sort((a, b) => b.avgPct - a.avgPct)
-    .slice(0, 5);
+  let anchor = new Date();
+  for (let i = 0; i < 52; i++) {
+    const { start, end } = getWeekendWindow(anchor);
+    const subsThisWeek = eligible.filter((s) => { const t = new Date(s.date).getTime(); return t >= start.getTime() && t < end.getTime(); });
+    if (subsThisWeek.length) return averageByStudent(subsThisWeek);
+    anchor = new Date(start.getTime() - 24 * 60 * 60 * 1000); // step back into the prior week
+  }
+  return [];
 }
 
-export function buildLeaderboard(submissions, testId) {
-  return submissions.filter((s) => s.testId === testId && !isExemptEmail(s.studentEmail))
+// Per-test leaderboard (shown on that test's own Result screen). Unlike the homepage board,
+// this intentionally uses each student's BEST score across ALL their attempts — so a re-attempt
+// that improves a student's score correctly improves their rank HERE, while never touching the
+// homepage board (which stays locked to first attempts only, computed separately above).
+export function buildLeaderboard(submissions, testId, students) {
+  return submissions.filter((s) => s.testId === testId && !isExemptSubmission(s, students))
     .reduce((acc, s) => {
       const ex = acc.find((a) => a.studentId === s.studentId);
       if (!ex || s.score > ex.score) { acc = acc.filter((a) => a.studentId !== s.studentId); acc.push(s); }
@@ -214,8 +274,8 @@ export function buildLeaderboard(submissions, testId) {
 
 // Also excludes exempt accounts, so their test-content-review attempts never skew the
 // "X% of students answered this correctly" stat shown to real students.
-export function computeCommunityAccuracy(submissions, testId, questionId) {
-  const subs = submissions.filter((s) => s.testId === testId && !isExemptEmail(s.studentEmail));
+export function computeCommunityAccuracy(submissions, testId, questionId, students) {
+  const subs = submissions.filter((s) => s.testId === testId && !isExemptSubmission(s, students));
   let attempted = 0, correct = 0;
   subs.forEach((s) => {
     const d = (s.detail || []).find((x) => x.q && x.q.id === questionId);
