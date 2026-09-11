@@ -10,7 +10,7 @@ function fmtTime(secs) { const m = Math.floor((secs || 0) / 60), s = (secs || 0)
 export default function ResultScreen({ submission: sub, autoTimeout, autoViolation, onReview, onReattempt, onClose }) {
   const { DB, setTab } = useApp();
   useLockBodyScroll(true);
-  const leaderboard = buildLeaderboard(DB.submissions, sub.testId);
+  const leaderboard = buildLeaderboard(DB.submissions, sub.testId, DB.students);
   const rank = leaderboard.findIndex((s) => s.id === sub.id) + 1;
   const attempted = sub.correct + sub.wrong;
   const percentile = leaderboard.length > 1 ? (((leaderboard.length - rank) / (leaderboard.length - 1)) * 100).toFixed(1) : '100.0';
