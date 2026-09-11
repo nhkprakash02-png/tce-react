@@ -33,7 +33,7 @@ export default function ReviewScreen({ submission: sub, onBackToSummary, onClose
   const statusColor = !attempted ? 'bg-gray-500' : (isCorrect ? 'bg-emerald-500' : 'bg-red-500');
   const expectedPerQ = sub.durationSec ? sub.durationSec / sub.detail.length : 60;
   const speed = classifySpeed(d.timeSpent || 0, expectedPerQ, isCorrect, attempted);
-  const communityPct = useMemo(() => computeCommunityAccuracy(DB.submissions, sub.testId, q.id), [DB.submissions, sub.testId, q.id]);
+  const communityPct = useMemo(() => computeCommunityAccuracy(DB.submissions, sub.testId, q.id, DB.students), [DB.submissions, sub.testId, q.id, DB.students]);
   const marksCorrectPerQ = +((sub.maxScore || 0) / (sub.detail.length || 1)).toFixed(2);
   const localSel = localAnswers[current];
   const SpeedIcon = speed ? SPEED_ICONS[speed.icon] : null;
