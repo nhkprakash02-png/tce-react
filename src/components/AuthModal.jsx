@@ -6,7 +6,7 @@ import { uid } from '../lib/utils';
 import { fbAuth, googleProvider, DEMO_MODE } from '../firebase';
 
 export function AccountModal() {
-  const { user, setTab, closeModal, setUser } = useApp();
+  const { user, setTab, closeModal, logout } = useApp();
   return (
     <Modal title="My Account">
       <p className="text-sm muted">Signed in as</p>
@@ -15,7 +15,7 @@ export function AccountModal() {
       <div className="flex gap-2 mt-5">
         <button onClick={() => { closeModal(); setTab('dashboard'); }} className="flex-1 btn-gold rounded-lg py-2.5 text-sm font-bold">Go to Dashboard</button>
         <button
-          onClick={() => { setUser(null); closeModal(); setTab('home'); }}
+          onClick={() => { logout(); closeModal(); setTab('home'); }}
           className="flex-1 btn-ghost rounded-lg py-2.5 text-sm font-bold"
         >Logout</button>
       </div>
