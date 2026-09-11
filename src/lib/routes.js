@@ -17,5 +17,19 @@ export const PATH_FOR_TAB = {
 const TAB_FOR_PATH = Object.fromEntries(Object.entries(PATH_FOR_TAB).map(([tab, path]) => [path, tab]));
 
 export function tabForPath(pathname) {
+  if (/^\/test\/[^/]+\/?$/.test(pathname)) return 'mocks';
   return TAB_FOR_PATH[pathname] || 'home';
+}
+
+// Deep link for a single mock test, e.g. /test/mt_abc123 — used by the "Copy Link"/"Share to
+// WhatsApp" menu on each mock test card. Kept separate from the static PATH_FOR_TAB map above
+// since it's a pattern (one path per test) rather than a fixed one-per-section path.
+export function testDeepLinkPath(testId) {
+  return `/test/${encodeURIComponent(testId)}`;
+}
+
+// Returns the testId if `pathname` is a /test/:id deep link, otherwise null.
+export function parseTestDeepLink(pathname) {
+  const m = /^\/test\/([^/]+)\/?$/.exec(pathname);
+  return m ? decodeURIComponent(m[1]) : null;
 }
