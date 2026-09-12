@@ -14,7 +14,7 @@ import ReviewScreen from './ReviewScreen';
 // Mirrors: showPreExamInstructions -> beginExam/resumeExam -> renderExamScreen -> finishExam ->
 // renderResultScreen -> reviewSolutions (lines ~1494-2155).
 export default function ExamFlow({ test, source, subject, onClose }) {
-  const { DB, saveDB, user, setExamInProgress } = useApp();
+  const { DB, addSubmission, user, setExamInProgress } = useApp();
   const [phase, setPhase] = useState('instructions'); // instructions | running | result | review
   const [runningExamState, setRunningExamState] = useState(null);
   const [lastSubmission, setLastSubmission] = useState(null);
@@ -40,7 +40,7 @@ export default function ExamFlow({ test, source, subject, onClose }) {
     setExamInProgress(false);
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     const submission = buildSubmission(finalExamState, DB, user);
-    saveDB((prev) => ({ ...prev, submissions: [...prev.submissions, submission] }));
+    addSubmission(submission);
     clearExamProgress(user.id);
     setLastSubmission(submission);
     setAutoFlags({ timeout: !!autoTimeout, violation: !!autoViolation });
