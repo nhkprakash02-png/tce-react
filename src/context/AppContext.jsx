@@ -2,7 +2,7 @@
 // `isAdmin()`, theme localStorage globals (index.html lines ~691-792) with React context.
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { getRedirectResult, onAuthStateChanged } from 'firebase/auth';
-import { loadDB, saveDB as persistDB, attachDbRealtimeListeners, loadBanners } from '../lib/db';
+import { loadDB, saveDB as persistDB, attachDbRealtimeListeners, attachSubmissionsRealtimeListener, writeSubmission, loadBanners } from '../lib/db';
 import { emptyDB } from '../lib/seedData';
 import { fbAuth } from '../firebase';
 import { isExemptEmail } from '../lib/utils';
@@ -69,6 +69,32 @@ export function AppProvider({ children }) {
       setDB((prev) => ({ ...prev, [key]: incoming }));
     });
     return unsub;
+  }, []);
+
+  // Submissions have their own realtime listener, separate from the DB_KEYS one above, since
+  // they now live in their own per-document collection (see SUBMISSIONS_COLLECTION in db.js) —
+  // this is the actual fix for the "sequential submissions overwriting each other" bug. Doesn't
+  // need the examInProgress guard the DB_KEYS listener uses: another student's submission
+  // landing here just updates DB.submissions, which the exam screen itself never reads from
+  // mid-test (only the result screen does, after finishing), so it can't disrupt anyone's
+  // in-progress exam.
+  useEffect(() => {
+    const unsub = attachSubmissionsRealtimeListener((submissions) => {
+      setDB((prev) => ({ ...prev, submissions }));
+    });
+    return unsub;
+  }, []);
+
+  // Records one finished exam attempt. This writes ONLY that submission's own Firestore
+  // document (writeSubmission), never the whole submissions collection — see the fix note on
+  // writeSubmission in db.js. The local state update here is optimistic (immediate UI update);
+  // the realtime listener above will reconcile it with the server's copy shortly after.
+  const addSubmission = useCallback((sub) => {
+    setDB((prev) => ({ ...prev, submissions: [...prev.submissions, sub] }));
+    writeSubmission(sub).catch((err) => {
+      console.error('Failed to save submission:', err);
+      alert('⚠ Could not sync this result to the cloud database. Please check your internet connection — your local result is still visible, but may not be saved permanently.');
+    });
   }, []);
 
   useEffect(() => {
@@ -223,9 +249,9 @@ export function AppProvider({ children }) {
     activeTab, setTab, goBack, canGoBack: tabStack.length > 0,
     examInProgress, setExamInProgress,
     isEnrolled, isExemptUser, hasFullAccess, logout,
-    deepLinkTestId, consumeDeepLinkTestId,
+    deepLinkTestId, consumeDeepLinkTestId, addSubmission,
     modal, openModal, closeModal,
-  }), [DB, saveDB, dbLoading, banners, user, setUser, admin, setAdmin, theme, toggleTheme, activeTab, setTab, goBack, tabStack, examInProgress, isEnrolled, isExemptUser, hasFullAccess, logout, deepLinkTestId, consumeDeepLinkTestId, modal, openModal, closeModal]);
+  }), [DB, saveDB, dbLoading, banners, user, setUser, admin, setAdmin, theme, toggleTheme, activeTab, setTab, goBack, tabStack, examInProgress, isEnrolled, isExemptUser, hasFullAccess, logout, deepLinkTestId, consumeDeepLinkTestId, addSubmission, modal, openModal, closeModal]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
