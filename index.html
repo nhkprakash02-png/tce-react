@@ -40,9 +40,72 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet" />
+
+<!-- App splash screen: pure inline CSS, no external file, so this can render the instant the
+     browser parses this HTML — well before React, the JS bundle, or any Firestore data has
+     loaded. This is what makes the site FEEL instant on first load (and on every fresh visit,
+     not just the installed PWA) even though some real network delay is unavoidable underneath
+     it. See src/context/AppContext.jsx for how React signals this to hide once real data is
+     ready. -->
+<style>
+  #app-splash {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #0B0B0B;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+  }
+  #app-splash.splash-hide { opacity: 0; visibility: hidden; pointer-events: none; }
+  #app-splash .splash-logo {
+    width: 84px; height: 84px; border-radius: 9999px; object-fit: cover;
+    animation: splash-pulse 1.4s ease-in-out infinite;
+    box-shadow: 0 0 32px rgba(245, 158, 11, 0.45);
+  }
+  #app-splash .splash-brand {
+    margin-top: 18px; font-family: 'Poppins', 'Inter', sans-serif; font-weight: 800;
+    font-size: 20px; letter-spacing: 0.02em;
+    background: linear-gradient(135deg, #F59E0B, #D97706, #FBBF24);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    opacity: 0; animation: splash-fade-in 0.6s ease 0.2s forwards;
+  }
+  #app-splash .splash-ring {
+    margin-top: 22px; width: 26px; height: 26px; border-radius: 9999px;
+    border: 3px solid rgba(245, 158, 11, 0.25); border-top-color: #F59E0B;
+    animation: splash-spin 0.8s linear infinite;
+  }
+  @keyframes splash-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  @keyframes splash-fade-in { to { opacity: 1; } }
+  @keyframes splash-spin { to { transform: rotate(360deg); } }
+</style>
 </head>
 <body class="no-tap-highlight">
+  <div id="app-splash">
+    <img src="/logo.png" alt="TCE" class="splash-logo" onerror="this.style.display='none'" />
+    <div class="splash-brand">TCE - The Competitive Edge</div>
+    <div class="splash-ring"></div>
+  </div>
   <div id="root"></div>
+  <script>
+    // Bridge between this plain-HTML splash and the React app: AppContext calls
+    // window.hideAppSplash() once the initial Firestore load finishes. A minimum 500ms display
+    // time avoids an imperceptible flash on fast connections/repeat visits, where the splash
+    // would otherwise disappear almost as soon as it appeared.
+    window.__splashShownAt = Date.now();
+    window.hideAppSplash = function () {
+      var el = document.getElementById('app-splash');
+      if (!el) return;
+      var elapsed = Date.now() - window.__splashShownAt;
+      var wait = Math.max(0, 500 - elapsed);
+      setTimeout(function () {
+        el.classList.add('splash-hide');
+        setTimeout(function () { el.remove(); }, 500);
+      }, wait);
+    };
+    // Safety net: the app is expected to call hideAppSplash() itself once real data has loaded
+    // (see AppContext.jsx). If that somehow never happens — a total backend outage, an
+    // unexpected uncaught error before that point, anything — this guarantees the splash still
+    // clears on its own after 8 seconds rather than permanently blocking the site.
+    setTimeout(function () { window.hideAppSplash(); }, 8000);
+  </script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
