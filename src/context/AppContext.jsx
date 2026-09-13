@@ -46,6 +46,11 @@ export function AppProvider({ children }) {
       if (cancelled) return;
       setDB(loaded);
       setDbLoading(false);
+      // Signals the plain-HTML splash screen in index.html to fade out now that real data has
+      // actually arrived — see the inline script there for the bridge and the minimum-display-
+      // time logic. Guarded since window.hideAppSplash won't exist outside a real browser (e.g.
+      // any future test/SSR environment).
+      if (typeof window.hideAppSplash === 'function') window.hideAppSplash();
       const b = await loadBanners(loaded);
       if (!cancelled) setBanners(b);
     })();
