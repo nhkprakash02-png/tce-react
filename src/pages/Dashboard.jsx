@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Lock, BarChart2, Camera } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { validateSourcePhoto } from '../lib/imageUtils';
+import { liveSubmissionTitle } from '../lib/examEngine';
 import Avatar from '../components/Avatar';
 import ImageCropperModal from '../components/ImageCropperModal';
 import ResultScreen from '../components/exam/ResultScreen';
 import ReviewScreen from '../components/exam/ReviewScreen';
 
 function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, onAnalyze }) {
-  const { setTab } = useApp();
+  const { setTab, DB } = useApp();
   return (
     <div className="mb-8">
       <h3 className="font-display font-700 text-lg mb-3">{title}</h3>
@@ -22,7 +23,7 @@ function ScoreTable({ title, rows, emptyLabel, emptyTab, onGo, onAnalyze }) {
           <tbody>
             {rows.length ? rows.map((s, i) => (
               <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
-                <td className="p-3">{s.testTitle}</td>
+                <td className="p-3">{liveSubmissionTitle(DB, s)}</td>
                 <td>#{s.attempt}</td>
                 <td className="gold-text font-semibold">{s.score}/{s.maxScore}</td>
                 <td>{s.accuracy}%</td>
