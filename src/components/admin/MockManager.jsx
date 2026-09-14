@@ -38,7 +38,11 @@ export default function MockManager() {
     const durationInput = prompt('Test duration (in minutes):', '20');
     const durationMin = durationInput !== null && parseFloat(durationInput) > 0 ? parseFloat(durationInput) : 20;
     const subCategory = promptSubCategory(subject);
-    const nt = { id: uid('mt'), subject, title, isDemo: false, adminUnlocked: false, examCategory, durationMin, subCategory, marksCorrect: 2, marksWrong: 0.5, questions: [] };
+    // New tests default to Paid (isDemo: false) — give them the next sequential display order
+    // among this subject's existing Paid mocks so they naturally land at the end of the list.
+    const existingPaidOrders = tests.filter((t) => !t.isDemo).map((t) => (typeof t.order === 'number' ? t.order : 0));
+    const nextOrder = existingPaidOrders.length ? Math.max(...existingPaidOrders) + 1 : 1;
+    const nt = { id: uid('mt'), subject, title, isDemo: false, adminUnlocked: false, examCategory, durationMin, subCategory, marksCorrect: 2, marksWrong: 0.5, questions: [], order: nextOrder };
     updateTests((ts) => [...ts, nt]);
     setTestId(nt.id);
   };
@@ -65,6 +69,18 @@ export default function MockManager() {
     setTestId(null);
   };
 
+  // Paid-mocks-only: lets the admin move a test to any position in the student-facing list by
+  // giving it a display order number (lower shows first). Free demo tests never get this control.
+  const setPaidMockOrder = () => {
+    if (!test || test.isDemo) return;
+    const current = typeof test.order === 'number' ? String(test.order) : '';
+    const input = prompt('Display order for this Paid Mock Test (lower numbers appear first, e.g. 1, 2, 3...):', current);
+    if (input === null) return;
+    const order = parseFloat(input);
+    if (!Number.isFinite(order)) { alert('Please enter a valid number.'); return; }
+    updateTests((ts) => ts.map((t) => (t.id === activeTestId ? { ...t, order } : t)));
+  };
+
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
@@ -81,7 +97,7 @@ export default function MockManager() {
       )}
       <div className="flex flex-wrap gap-2 mb-4 items-center">
         <select value={activeTestId || ''} onChange={(e) => setTestId(e.target.value)} className="rounded-lg px-3 py-2 text-xs">
-          {tests.map((t) => <option key={t.id} value={t.id}>{t.title}{t.subCategory ? ' — ' + t.subCategory : ''} {t.isDemo ? '(Free Demo)' : ''}{(t.adminUnlocked && !t.isDemo) ? '(Unlocked for Enrolled)' : ''}</option>)}
+          {tests.map((t) => <option key={t.id} value={t.id}>{t.title}{t.subCategory ? ' — ' + t.subCategory : ''} {t.isDemo ? '(Free Demo)' : ''}{(t.adminUnlocked && !t.isDemo) ? '(Unlocked for Enrolled)' : ''}{(!t.isDemo && typeof t.order === 'number') ? ` [Order: ${t.order}]` : ''}</option>)}
         </select>
         <button onClick={addNewMockTest} className="btn-ghost rounded-lg px-3 py-2 text-xs font-bold">+ New Test</button>
         {test && (
@@ -89,6 +105,11 @@ export default function MockManager() {
             <button onClick={toggleDemoFlag} className="btn-ghost rounded-lg px-3 py-2 text-xs font-bold">{test.isDemo ? 'Mark as Premium' : 'Mark as Free Demo'}</button>
             <button onClick={toggleAdminUnlock} className="btn-ghost rounded-lg px-3 py-2 text-xs font-bold">{test.adminUnlocked ? 'Lock This Test' : 'Unlock for Enrolled Students'}</button>
             <button onClick={editTestMeta} className="btn-ghost rounded-lg px-3 py-2 text-xs font-bold">Edit Test Info</button>
+            {!test.isDemo && (
+              <button onClick={setPaidMockOrder} className="btn-ghost rounded-lg px-3 py-2 text-xs font-bold">
+                Set Display Order{typeof test.order === 'number' ? ` (${test.order})` : ''}
+              </button>
+            )}
             <button onClick={() => printOfflinePaper(test)} className="btn-ghost rounded-lg px-3 py-2 text-xs font-bold flex items-center gap-1"><Printer className="w-3.5 h-3.5" />Print / Export Offline Paper</button>
             <button onClick={deleteTest} className="rounded-lg px-3 py-2 text-xs font-bold bg-red-600 text-white flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" />Delete Test</button>
           </>
