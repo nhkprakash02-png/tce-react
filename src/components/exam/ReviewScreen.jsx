@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Menu, X, Zap, CheckCircle, Clock, AlertCircle, Eye } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { sectionDisplayName, classifySpeed, computeCommunityAccuracy, fmtReviewTime } from '../../lib/examEngine';
+import { sectionDisplayName, classifySpeed, computeCommunityAccuracy, fmtReviewTime, liveSubmissionTitle } from '../../lib/examEngine';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
 const SPEED_ICONS = { zap: Zap, 'check-circle': CheckCircle, clock: Clock, 'alert-circle': AlertCircle };
@@ -15,6 +15,7 @@ export default function ReviewScreen({ submission: sub, onBackToSummary, onClose
   const [localAnswers, setLocalAnswers] = useState({});
   const [showSolution, setShowSolution] = useState(false);
   useLockBodyScroll(true);
+  const displayTitle = liveSubmissionTitle(DB, sub);
 
   const correctCount = sub.detail.filter((d) => d.given && d.given === d.q.correct).length;
   const incorrectCount = sub.detail.filter((d) => d.given && d.given !== d.q.correct).length;
@@ -43,7 +44,7 @@ export default function ReviewScreen({ submission: sub, onBackToSummary, onClose
       <div className="flex items-center justify-between px-4 py-3 gold-grad">
         <div className="flex items-center gap-3">
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center shrink-0"><ArrowLeft className="w-4 h-4 text-black" /></button>
-          <div className="min-w-0"><p className="text-xs font-bold text-black">Tests</p><p className="text-[11px] text-black/70 truncate">TCE — {sub.testTitle}</p></div>
+          <div className="min-w-0"><p className="text-xs font-bold text-black">Tests</p><p className="text-[11px] text-black/70 truncate">TCE — {displayTitle}</p></div>
         </div>
         <button onClick={onBackToSummary} className="text-[11px] font-bold text-black shrink-0">ANALYTICS</button>
       </div>
@@ -52,7 +53,7 @@ export default function ReviewScreen({ submission: sub, onBackToSummary, onClose
         <div className="flex-1 overflow-y-auto p-5 sm:p-8">
           {viewMode === 'paper' ? (
             <div className="max-w-2xl mx-auto">
-              <h3 className="font-display font-700 text-lg mb-4">{sub.testTitle} — Full Question Paper</h3>
+              <h3 className="font-display font-700 text-lg mb-4">{displayTitle} — Full Question Paper</h3>
               <div className="space-y-5">
                 {sub.detail.map((dd, i) => (
                   <div key={i} className="card2 rounded-xl p-4">
