@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { priceLabel, defaultBatchFeatures } from '../lib/utils';
+import PriceTag from '../components/PriceTag';
 
 export default function Batches() {
   const { DB, dbLoading, openModal } = useApp();
@@ -24,7 +25,10 @@ export default function Batches() {
                   Featured Batch{b.examCategory && b.examCategory !== 'All Exams' ? ` • ${b.examCategory}` : ''}
                 </span>
                 <h3 className="font-display font-800 text-2xl text-black">{b.name}</h3>
-                <p className="text-black/80 text-sm mt-1">{priceLabel(b.price)} — Monthly enrollment fee</p>
+                <div className="mt-1">
+                  <PriceTag price={b.price} originalPrice={b.originalPrice} size="base" theme="gold" />
+                  <span className="text-black/80 text-sm ml-1">— Monthly enrollment fee</span>
+                </div>
               </div>
               <div className="p-6 sm:p-8">
                 <h4 className="font-semibold text-sm mb-3">What's Included</h4>
