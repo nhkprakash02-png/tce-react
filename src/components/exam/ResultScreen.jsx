@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Trophy, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, ImageDown, MessageCircle, Repeat } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { sectionDisplayName, buildLeaderboard, downloadScorecard, shareScorecardWhatsApp } from '../../lib/examEngine';
+import { sectionDisplayName, buildLeaderboard, downloadScorecard, shareScorecardWhatsApp, liveSubmissionTitle } from '../../lib/examEngine';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 import Avatar from '../Avatar';
 
@@ -10,6 +10,7 @@ function fmtTime(secs) { const m = Math.floor((secs || 0) / 60), s = (secs || 0)
 export default function ResultScreen({ submission: sub, autoTimeout, autoViolation, onReview, onReattempt, onClose }) {
   const { DB, setTab } = useApp();
   useLockBodyScroll(true);
+  const displayTitle = liveSubmissionTitle(DB, sub);
   const leaderboard = buildLeaderboard(DB.submissions, sub.testId, DB.students);
   const rank = leaderboard.findIndex((s) => s.id === sub.id) + 1;
   const attempted = sub.correct + sub.wrong;
@@ -41,7 +42,7 @@ export default function ResultScreen({ submission: sub, autoTimeout, autoViolati
 
         <div className="text-center mb-6">
           <Trophy className="w-12 h-12 gold-text mx-auto mb-2" />
-          <h2 className="font-display font-800 text-2xl">TCE — {sub.testTitle}</h2>
+          <h2 className="font-display font-800 text-2xl">TCE — {displayTitle}</h2>
           <p className="muted text-sm">Attempt #{sub.attempt} — Overall Performance Summary</p>
         </div>
 
@@ -102,8 +103,8 @@ export default function ResultScreen({ submission: sub, autoTimeout, autoViolati
         </div>
 
         <div className="flex flex-wrap gap-3 justify-center mb-4">
-          <button onClick={() => downloadScorecard(sub, rank)} className="btn-ghost rounded-lg px-5 py-2.5 text-xs font-bold flex items-center gap-1.5"><ImageDown className="w-3.5 h-3.5" />Download Scorecard</button>
-          <button onClick={() => shareScorecardWhatsApp(sub, rank)} className="rounded-lg px-5 py-2.5 text-xs font-bold bg-[#25D366] text-white flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" />Share on WhatsApp</button>
+          <button onClick={() => downloadScorecard({ ...sub, testTitle: displayTitle }, rank)} className="btn-ghost rounded-lg px-5 py-2.5 text-xs font-bold flex items-center gap-1.5"><ImageDown className="w-3.5 h-3.5" />Download Scorecard</button>
+          <button onClick={() => shareScorecardWhatsApp({ ...sub, testTitle: displayTitle }, rank)} className="rounded-lg px-5 py-2.5 text-xs font-bold bg-[#25D366] text-white flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" />Share on WhatsApp</button>
         </div>
         <div className="flex flex-wrap gap-3 justify-center">
           <button onClick={onReview} className="btn-ghost rounded-lg px-5 py-2.5 text-xs font-bold">Review Full Solutions</button>
