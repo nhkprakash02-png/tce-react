@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp } from '../../context/AppContext';
-import { isExemptSubmission, firstAttemptSubmissions } from '../../lib/examEngine';
+import { isExemptSubmission, firstAttemptSubmissions, liveSubmissionTitle } from '../../lib/examEngine';
 
 const SUBJECTS = [['all', 'All Subjects'], ['math', 'Mathematics'], ['english', 'English'], ['reasoning', 'Reasoning'], ['gk', 'General Knowledge (GK)'], ['science', 'Science'], ['full', 'Full Combined Mock']];
 
@@ -34,7 +34,7 @@ export default function ResultsManager() {
   }, [DB.submissions, DB.mockTests, DB.students, subjectFilter, testFilter]);
 
   const exportResultsExcel = () => {
-    const rows = ranked.map((s, i) => ({ Rank: i + 1, Student: s.studentName, Phone: s.studentPhone, Test: s.testTitle, Attempt: s.attempt, Score: s.score, MaxScore: s.maxScore, Accuracy: s.accuracy, TimeTakenSec: s.timeTakenSec, Date: new Date(s.date).toLocaleString() }));
+    const rows = ranked.map((s, i) => ({ Rank: i + 1, Student: s.studentName, Phone: s.studentPhone, Test: liveSubmissionTitle(DB, s), Attempt: s.attempt, Score: s.score, MaxScore: s.maxScore, Accuracy: s.accuracy, TimeTakenSec: s.timeTakenSec, Date: new Date(s.date).toLocaleString() }));
     const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'MockResults'); XLSX.writeFile(wb, 'TCE_MockResults.xlsx');
   };
@@ -59,7 +59,7 @@ export default function ResultsManager() {
             {ranked.length ? ranked.map((s, i) => (
               <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
                 <td className="p-2 gold-text font-bold">#{i + 1}</td><td className="p-2">{s.studentName}</td><td className="p-2">{s.studentPhone || '-'}</td>
-                <td className="p-2">{s.testTitle} (Attempt #{s.attempt})</td>
+                <td className="p-2">{liveSubmissionTitle(DB, s)} (Attempt #{s.attempt})</td>
                 <td className="p-2 font-semibold">{s.score}/{s.maxScore}</td><td className="p-2">{s.accuracy}%</td>
                 <td className="p-2">{Math.floor(s.timeTakenSec / 60)}m {s.timeTakenSec % 60}s</td><td className="p-2">{new Date(s.date).toLocaleString()}</td>
               </tr>
