@@ -1,7 +1,8 @@
 import React from 'react';
 import { FileCheck2, Zap, Archive, BookOpen, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { priceLabel, batchFeaturesList } from '../lib/utils';
+import { batchFeaturesList } from '../lib/utils';
+import PriceTag from '../components/PriceTag';
 import UrgentNotices from '../components/UrgentNotices';
 import HomeLeaderboard from '../components/HomeLeaderboard';
 
@@ -60,7 +61,9 @@ export default function Home() {
                     <span className="badge bg-sky-500/15 text-sky-400 shrink-0">{b.examCategory}</span>
                   )}
                 </div>
-                <p className="gold-text font-display font-800 text-xl mb-3">{priceLabel(b.price)}</p>
+                <div className="mb-3">
+                  <PriceTag price={b.price} originalPrice={b.originalPrice} size="lg" theme="dark" />
+                </div>
                 <ul className="text-xs muted space-y-1 mb-4">
                   {batchFeaturesList(b).slice(0, 3).map((f) => (
                     <li key={f} className="flex gap-1.5 items-center"><Check className="w-3 h-3 gold-text" />{f}</li>
