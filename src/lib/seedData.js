@@ -152,7 +152,8 @@ export function normalizeDB(db) {
   if (!db.quizDurations) db.quizDurations = { 5: 3, 10: 7, 15: 10, 20: 12 };
   (db.batches || []).forEach((b) => {
     if (!b.examCategory) b.examCategory = 'All Exams';
-    b.price = 300;
+    if (b.price === undefined || b.price === null || Number.isNaN(Number(b.price))) b.price = 300;
+    if (b.originalPrice !== undefined && b.originalPrice !== null && !(Number(b.originalPrice) > Number(b.price))) delete b.originalPrice;
     if (!b.features || !b.features.length || (b.features.length === 1 && b.features[0] === 'Full access to batch resources')) b.features = ['Full access to all Mocks', 'PYQ Hub with multi-attempt analysis', 'Daily Quizzes', 'Detailed Analysis', 'Unlimited Re-attempts'];
   });
   if (!db.examCategories || !db.examCategories.includes('Railway (RRB)')) {
