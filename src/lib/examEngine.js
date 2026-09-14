@@ -364,3 +364,17 @@ export function shareScorecardWhatsApp(sub, rank) {
   const text = `My TCE Score Card 🏆\n${sub.testTitle}\nScore: ${sub.score}/${sub.maxScore} | Rank #${rank} | Accuracy: ${sub.accuracy}%\n- TCE The Competitive Edge`;
   window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }
+
+// Paid mock tests can be renamed by an admin (via MockManager's "Edit Test Info") after
+// students have already attempted them. Submissions always keep their original `testTitle`
+// snapshot so historical data never breaks, but the Analysis Panel / attempt history should show
+// the *current* title for a still-existing PAID mock. This intentionally does nothing for PYQ
+// attempts, Quiz attempts, or free-demo mock attempts — those keep showing their stored title,
+// exactly as before.
+export function liveSubmissionTitle(DB, sub) {
+  if (sub && sub.testType === 'mock' && sub.subject && DB && DB.mockTests && DB.mockTests[sub.subject]) {
+    const liveTest = DB.mockTests[sub.subject].find((t) => t.id === sub.testId);
+    if (liveTest && liveTest.title && !liveTest.isDemo) return liveTest.title;
+  }
+  return sub.testTitle;
+}
