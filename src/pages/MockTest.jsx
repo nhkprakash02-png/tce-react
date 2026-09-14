@@ -55,7 +55,18 @@ export default function MockTest() {
     if (searchQ.trim()) list = list.filter((t) => t.title.toLowerCase().includes(searchQ.trim().toLowerCase()));
     if (examFilter !== 'all') list = list.filter((t) => (t.examCategory || 'All Exams') === examFilter || (t.examCategory || 'All Exams') === 'All Exams');
     if (subCategory !== 'all') list = list.filter((t) => t.subCategory === subCategory);
-    return list;
+
+    // Paid/Enrolled mock tests are sorted by the admin-defined `order` field (ascending; tests
+    // without a numeric order fall back to the end of the paid group, in their original relative
+    // order). Free demo tests are left completely untouched and always precede the paid group,
+    // matching how they've always been presented ("try the free demo, then unlock the rest").
+    const demoTests = list.filter((t) => t.isDemo);
+    const paidTests = list.filter((t) => !t.isDemo).slice().sort((a, b) => {
+      const ao = typeof a.order === 'number' ? a.order : Infinity;
+      const bo = typeof b.order === 'number' ? b.order : Infinity;
+      return ao - bo;
+    });
+    return [...demoTests, ...paidTests];
   }, [DB.mockTests, subjectTab, searchQ, examFilter, subCategory]);
 
   const startTest = (test, subject) => {
